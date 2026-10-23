@@ -92,6 +92,23 @@ body.chatting .ring.r3{display:none}
 .ai .txt{background:rgba(143,216,255,.07);border:1px solid rgba(143,216,255,.22);border-bottom-left-radius:4px}
 .ai.err .txt{background:rgba(255,122,107,.08);border-color:rgba(255,122,107,.35);color:#ffc1b8}
 .msg.ur .txt{font-family:var(--urdu);line-height:2.3;font-size:16.5px;text-align:right}
+.msg,.card{scroll-margin-bottom:150px}
+.card{align-self:stretch;max-width:100%;border:1px solid var(--line2);border-radius:16px;background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:10px}
+.card-hd{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-hd b{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-weight:400}
+.card .st{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.card .st.sent{color:var(--ok)} .card .st.gone{color:var(--danger)}
+.card label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--muted)}
+.card input,.card textarea{background:var(--bg2);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font:inherit;font-size:14px;width:100%}
+.card textarea{min-height:170px;resize:vertical;line-height:1.5}
+.card input:focus,.card textarea:focus{outline:2px solid var(--ice);outline-offset:1px}
+.card .warn{font-size:12.5px;color:var(--amber)}
+.card .alts{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted);align-items:center}
+.card .alts button{border:1px solid var(--line2);background:var(--panel2);color:var(--fg);border-radius:999px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+.card .acts{display:flex;flex-wrap:wrap;gap:8px}
+.card .acts .btn{padding:9px 14px}
+.card.done input,.card.done textarea{opacity:.7}
+.linkbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
 
 /* Dock */
 .dock{position:sticky;bottom:0;z-index:5;display:flex;flex-direction:column;gap:10px;padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,transparent,var(--bg) 22%)}
@@ -173,10 +190,11 @@ form{display:flex;gap:8px}
   <main class="screen" id="log" aria-live="polite">
     <div class="empty" id="empty">
       <span class="eyebrow">At your service, sir</span>
-      <span>Tap the orb, say “Hey Jarvis”, or try one of these:</span>
+      <span>Tap the orb, say “Jarvis”, or try one of these:</span>
       <div class="chips">
         <button class="chip" data-q="What can you do for me?">What can you do?</button>
         <button class="chip" data-q="Give me one tip to motivate my sales team today.">Motivate my team</button>
+        <button class="chip" data-q="Open my Gmail">Open my Gmail</button>
         <button class="chip ur" data-q="آج کا ایک اچھا قول سنائیں">آج کا قول سنائیں</button>
       </div>
     </div>
@@ -188,7 +206,7 @@ form{display:flex;gap:8px}
         <button type="button" id="langEn" aria-pressed="true">English</button>
         <button type="button" id="langUr" aria-pressed="false"><span class="ur-lbl">اردو</span></button>
       </div>
-      <button type="button" class="wake" id="wakeBtn" aria-pressed="false"><span class="sw"></span>Hey Jarvis</button>
+      <button type="button" class="wake" id="wakeBtn" aria-pressed="false"><span class="sw"></span>Jarvis wake word</button>
     </div>
     <form id="form">
       <input type="text" id="q" placeholder="Ask Jarvis anything…" autocomplete="off" enterkeyhint="send">
@@ -255,7 +273,7 @@ function setStatus(s, t){
   if(s === "ready"){ idleHint(); resumeWake(); }
 }
 function idleHint(){
-  if(wakeOn()){ hint.textContent = urduMode ? '"Hey Jarvis" کہیں، پھر اپنا سوال پوچھیں' : 'Say "Hey Jarvis", then your question.'; statusEl.dataset.s = "wake"; statusText.textContent = "Say Hey Jarvis"; }
+  if(wakeOn()){ hint.textContent = urduMode ? '"جاروس" کہیں، پھر اپنا سوال پوچھیں' : 'Say "Jarvis", then your question.'; statusEl.dataset.s = "wake"; statusText.textContent = "Say Jarvis"; }
   else hint.textContent = urduMode ? "اورب دبائیں اور بولیں" : "Tap the orb and speak.";
 }
 function addMsg(who, text, cls){
@@ -366,19 +384,30 @@ function speak(text, alt){
 }
 
 /* ---------- Ask ---------- */
+let pendingDraft = null;   // { draftId, card, fields... }
+const SEND_RE = /^\s*(?:jarvis[\s,]*)?(?:yes[\s,]*)?(send( it| the email| email| kar do| kardo| kr do)?|bhej(o| do| dein| den| dijiye)|haan bhej(o| do)?|ok send|go ahead( and send)?|بھیج دو|بھیجو|بھیج دیں|ہاں بھیج دو|भेज दो)\s*[.!]?\s*$/i;
+const CANCEL_RE = /^\s*(?:jarvis[\s,]*)?(cancel|discard|delete( it| the draft)?|don'?t send|mat bhej(o|na)?|rehne do|nahi bhejna|کینسل|رہنے دو|مت بھیجو)\s*[.!]?\s*$/i;
+
 async function ask(question){
   question = (question || "").trim(); if(!question || busy) return;
   if(!serverUrl || !pin){ openPanel("Conn"); return; }
   stopWake();
+  if(pendingDraft && SEND_RE.test(question)){ addMsg("You", question, "me"); sendDraft(pendingDraft); return; }
+  if(pendingDraft && CANCEL_RE.test(question)){ addMsg("You", question, "me"); discardDraft(pendingDraft); return; }
   addMsg("You", question, "me");
   history.push({ role:"user", text: question });
   if(history.length > 20) history = history.slice(-20);
   const out = addMsg("Jarvis", urduMode ? "سوچ رہا ہوں…" : "Thinking…", "ai");
   busy = true; $("send").disabled = true; setStatus("thinking", "Thinking");
   try{
-    const r = await callBrain({ history });
-    if(r.ok){ setText(out, r.text); history.push({ role:"model", text: r.text }); busy = false; speak(r.text, r.speak); }
-    else {
+    const payload = { history };
+    if(pendingDraft) payload.pendingDraft = draftValues(pendingDraft);
+    const r = await callBrain(payload);
+    if(r.ok){
+      setText(out, r.text); history.push({ role:"model", text: r.text });
+      if(r.action) handleAction(r.action);
+      busy = false; speak(r.text, r.speak);
+    } else {
       history.pop(); setText(out, r.error || "Something went wrong."); out.parentElement.classList.add("err");
       if(r.badPin){ markConnected(false); openPanel("Conn"); }
       busy = false; setStatus("ready","Ready");
@@ -390,6 +419,92 @@ async function ask(question){
     if(!stopped) out.parentElement.classList.add("err");
     busy = false; setStatus("ready","Ready");
   }finally{ busy = false; $("send").disabled = false; }
+}
+
+/* ---------- Actions from the brain ---------- */
+function el(tag, attrs, kids){
+  const e = document.createElement(tag);
+  for(const k in (attrs||{})){ if(k === "text") e.textContent = attrs[k]; else if(k === "on") for(const ev in attrs.on) e.addEventListener(ev, attrs.on[ev]); else e.setAttribute(k, attrs[k]); }
+  (kids||[]).forEach(c=>c && e.append(c)); return e;
+}
+function handleAction(a){
+  if(a.type === "open"){
+    const link = el("a", { class:"btn primary linkbtn", href:a.url, target:"_blank", rel:"noopener", text:"↗ " + (a.label || "Open") });
+    const card = el("div", { class:"card" }, [ el("div", { class:"card-hd" }, [ el("b", { text:"Shortcut" }) ]), el("div", { class:"acts" }, [link]) ]);
+    log.append(card); card.scrollIntoView({block:"end", behavior:"smooth"});
+    try{ window.open(a.url, "_blank", "noopener"); }catch(e){}
+    return;
+  }
+  if(a.type === "email_draft"){
+    // Updating an existing draft: refresh that card instead of adding a new one.
+    if(pendingDraft && pendingDraft.draftId === a.draftId){ fillDraftCard(pendingDraft, a); pendingDraft.card.scrollIntoView({block:"end", behavior:"smooth"}); return; }
+    if(pendingDraft) markCard(pendingDraft, "Replaced", "gone");
+    const d = { draftId:a.draftId, link:a.link };
+    d.to = el("input", { type:"text", "aria-label":"To" });
+    d.cc = el("input", { type:"text", "aria-label":"CC", placeholder:"Optional" });
+    d.subject = el("input", { type:"text", "aria-label":"Subject" });
+    d.body = el("textarea", { "aria-label":"Message" });
+    d.status = el("span", { class:"st", text:"Draft · not sent" });
+    d.warn = el("div", { class:"warn" }); d.alts = el("div", { class:"alts" });
+    d.sendBtn = el("button", { class:"btn primary", type:"button", text:"✉ Send", on:{ click:()=>sendDraft(d) } });
+    d.gmailBtn = el("a", { class:"btn linkbtn", href:a.link, target:"_blank", rel:"noopener", text:"Open in Gmail" });
+    d.delBtn = el("button", { class:"btn danger", type:"button", text:"Discard", on:{ click:()=>discardDraft(d) } });
+    d.card = el("div", { class:"card" }, [
+      el("div", { class:"card-hd" }, [ el("b", { text:"Email draft" }), d.status ]),
+      el("label", {}, [ document.createTextNode("To"), d.to ]), d.alts, d.warn,
+      el("label", {}, [ document.createTextNode("CC"), d.cc ]),
+      el("label", {}, [ document.createTextNode("Subject"), d.subject ]),
+      el("label", {}, [ document.createTextNode("Message"), d.body ]),
+      el("div", { class:"acts" }, [ d.sendBtn, d.gmailBtn, d.delBtn ])
+    ]);
+    fillDraftCard(d, a);
+    log.append(d.card); d.card.scrollIntoView({block:"end", behavior:"smooth"});
+    pendingDraft = d;
+  }
+}
+function fillDraftCard(d, a){
+  d.to.value = a.to || ""; d.cc.value = a.cc || ""; d.subject.value = a.subject || ""; d.body.value = a.body || "";
+  d.warn.textContent = (a.missing && a.missing.length) ? "Address not found for: " + a.missing.join(", ") + ". Type it in the To box." : "";
+  d.alts.innerHTML = "";
+  if(a.alternatives && a.alternatives.length){
+    d.alts.append(document.createTextNode("Not the right person? "));
+    a.alternatives.forEach(p=>d.alts.append(el("button", { type:"button", text:(p.name ? p.name + " · " : "") + p.email, on:{ click:()=>{ d.to.value = p.email; } } })));
+  }
+  if(a.link){ d.link = a.link; d.gmailBtn.href = a.link; }
+}
+function draftValues(d){ return { draftId:d.draftId, to:d.to.value.trim(), cc:d.cc.value.trim(), subject:d.subject.value.trim(), body:d.body.value }; }
+function markCard(d, text, cls){
+  d.status.textContent = text; d.status.className = "st " + (cls||"");
+  d.card.classList.add("done"); [d.to,d.cc,d.subject,d.body].forEach(x=>x.disabled = true);
+  d.sendBtn.remove(); d.delBtn.remove();
+  if(pendingDraft === d) pendingDraft = null;
+}
+async function sendDraft(d){
+  if(busy) return;
+  const v = draftValues(d);
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+(\s*,\s*[^@\s]+@[^@\s]+\.[^@\s]+)*$/.test(v.to)){
+    const m = urduMode ? "ٹو والے خانے میں صحیح ای میل ایڈریس لکھیں۔" : "Please put a valid email address in the To box first.";
+    addMsg("Jarvis", m, "ai err"); speak(m); d.to.focus(); return;
+  }
+  busy = true; d.sendBtn.disabled = true; d.sendBtn.textContent = "Sending…"; setStatus("thinking","Sending");
+  try{
+    const r = await callBrain(Object.assign({ action:"send_draft" }, v), 60000);
+    busy = false;
+    if(r.ok){
+      markCard(d, "Sent ✓", "sent");
+      const m = urduMode ? "ای میل بھیج دی گئی ہے سر۔" : "Email sent, sir.";
+      addMsg("Jarvis", m, "ai"); history.push({ role:"model", text:"(Email sent to " + v.to + ")" });
+      speak(m, urduMode ? "ईमेल भेज दी गई है सर।" : "");
+    } else { d.sendBtn.disabled = false; d.sendBtn.textContent = "✉ Send"; addMsg("Jarvis", r.error || "Could not send.", "ai err"); setStatus("ready","Ready"); }
+  }catch(e){ busy = false; d.sendBtn.disabled = false; d.sendBtn.textContent = "✉ Send"; addMsg("Jarvis", "Could not reach the server. The email was not sent.", "ai err"); setStatus("ready","Ready"); }
+}
+async function discardDraft(d){
+  if(busy) return;
+  busy = true; setStatus("thinking","Working");
+  try{ await callBrain({ action:"discard_draft", draftId:d.draftId }, 30000); }catch(e){}
+  busy = false; markCard(d, "Discarded", "gone");
+  const m = urduMode ? "ٹھیک ہے، ڈرافٹ ختم کر دیا۔" : "Okay, I deleted the draft.";
+  addMsg("Jarvis", m, "ai"); speak(m, urduMode ? "ठीक है, ड्राफ़्ट ख़त्म कर दिया।" : "");
 }
 
 /* ---------- Manual mic (orb) ---------- */
@@ -463,12 +578,12 @@ function startWake(){
       }
     }
   };
-  r.onerror = ev=>{ if(ev.error === "not-allowed" || ev.error === "service-not-allowed"){ setWake(false); hint.textContent = "Microphone is blocked, so Hey Jarvis can't listen. Allow the mic from the lock icon in the address bar."; } };
+  r.onerror = ev=>{ if(ev.error === "not-allowed" || ev.error === "service-not-allowed"){ setWake(false); hint.textContent = "Microphone is blocked, so Jarvis can't listen. Allow the mic from the lock icon in the address bar."; } };
   r.onend = ()=>{ wakeRunning = false; if(wakeRec === r){ wakeRec = null; resumeWake(); } };
   wakeRec = r; try{ r.start(); }catch(e){ wakeRec = null; wakeRunning = false; }
 }
 function setWake(on){
-  if(on && !SR){ hint.textContent = "Hey Jarvis needs Chrome or Edge."; on = false; }
+  if(on && !SR){ hint.textContent = "The wake word needs Chrome or Edge."; on = false; }
   if(on && !(serverUrl && pin)){ openPanel("Conn"); on = false; }
   $("wakeBtn").setAttribute("aria-pressed", String(on)); store.set("jarvis_wake", on ? "1" : "");
   if(on) startWake(); else { stopWake(); setStatus("ready","Ready"); }
@@ -482,7 +597,7 @@ $("langEn").onclick = ()=>setLang(false);
 $("langUr").onclick = ()=>setLang(true);
 $("wakeBtn").onclick = ()=>setWake(!wakeOn());
 document.querySelectorAll(".chip").forEach(c=>c.onclick = ()=>ask(c.dataset.q));
-$("clearChat").onclick = ()=>{ history = []; log.innerHTML = ""; document.body.classList.remove("chatting"); closePanel(); };
+$("clearChat").onclick = ()=>{ pendingDraft = null; history = []; log.innerHTML = ""; document.body.classList.remove("chatting"); closePanel(); };
 
 /* ---------- Start ---------- */
 setLang(store.get("jarvis_lang") === "ur");
