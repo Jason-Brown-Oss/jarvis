@@ -132,7 +132,7 @@ function addMsg(who,text,cls){
 /* ---- Talk to the Apps Script brain ---- */
 async function callBrain(payload, ms){
   ctl = new AbortController();
-  const timer = setTimeout(()=>ctl.abort("timeout"), ms || 60000);
+  const timer = setTimeout(()=>ctl.abort("timeout"), ms || 90000);
   try{
     // text/plain keeps this a "simple" request so Apps Script accepts it from any site
     const res = await fetch(serverUrl, { method:"POST", body: JSON.stringify(Object.assign({ pin }, payload)), headers:{ "Content-Type":"text/plain;charset=utf-8" }, signal: ctl.signal, redirect:"follow" });
@@ -199,7 +199,7 @@ async function ask(question){
     history.pop();
     const timedOut = ctl && ctl.signal.reason === "timeout";
     const stopped = !timedOut && ctl && ctl.signal.aborted;
-    out.textContent = stopped ? "Stopped." : timedOut ? "The brain did not answer in 60 seconds. Try again." : "Could not reach the Jarvis server. Check your internet and try again.";
+    out.textContent = stopped ? "Stopped." : timedOut ? "The brain did not answer in 90 seconds. Try again." : "Could not reach the Jarvis server. Check your internet and try again.";
     if(!stopped) out.parentElement.classList.add("err");
     setStatus("ready","Ready");
   }finally{ busy = false; $("send").disabled = false; }
