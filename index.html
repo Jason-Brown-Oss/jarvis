@@ -91,6 +91,9 @@ body.chatting .ring.r3{display:none}
 .ai{align-self:flex-start}
 .ai .txt{background:rgba(143,216,255,.07);border:1px solid rgba(143,216,255,.22);border-bottom-left-radius:4px}
 .ai.err .txt{background:rgba(255,122,107,.08);border-color:rgba(255,122,107,.35);color:#ffc1b8}
+.replay{align-self:flex-start;border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;cursor:pointer;margin-top:2px}
+.replay:hover{color:var(--fg);border-color:var(--ice)}
+.bigopen{font-size:16px;padding:14px 18px;width:100%;justify-content:center}
 .msg.ur .txt{font-family:var(--urdu);line-height:2.3;font-size:16.5px;text-align:right}
 .msg,.card{scroll-margin-bottom:150px}
 .card{align-self:stretch;max-width:100%;border:1px solid var(--line2);border-radius:16px;background:var(--panel);padding:14px;display:flex;flex-direction:column;gap:10px}
@@ -146,6 +149,8 @@ form{display:flex;gap:8px}
 .sec{display:flex;flex-direction:column;gap:14px}
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.field textarea{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:14px;width:100%;resize:vertical;line-height:1.55;min-height:220px}
+.field textarea:focus{outline:2px solid var(--ice);outline-offset:1px}
 .field input,.field select{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:14px;width:100%}
 .field input:focus,.field select:focus{outline:2px solid var(--ice);outline-offset:1px}
 .note{font-size:12.5px;color:var(--muted);margin:0}
@@ -194,7 +199,7 @@ form{display:flex;gap:8px}
       <div class="chips">
         <button class="chip" data-q="What can you do for me?">What can you do?</button>
         <button class="chip" data-q="Give me one tip to motivate my sales team today.">Motivate my team</button>
-        <button class="chip" data-q="Open my Gmail">Open my Gmail</button>
+        <button class="chip" data-q="Open Instagram reels">Open Instagram reels</button>
         <button class="chip ur" data-q="آج کا ایک اچھا قول سنائیں">آج کا قول سنائیں</button>
       </div>
     </div>
@@ -227,6 +232,8 @@ form{display:flex;gap:8px}
   <div class="tabs" role="tablist">
     <button role="tab" id="tabConn" aria-selected="true">Connection</button>
     <button role="tab" id="tabVoice" aria-selected="false">Voice</button>
+    <button role="tab" id="tabDevices" aria-selected="false">Devices</button>
+    <button role="tab" id="tabTrain" aria-selected="false">Train</button>
     <button role="tab" id="tabChat" aria-selected="false">Chat</button>
   </div>
 
@@ -249,6 +256,33 @@ form{display:flex;gap:8px}
     <p class="note">Jarvis picks a male voice by default. For the best Urdu male voice on a computer, open Jarvis in Microsoft Edge and choose “Asad”. On Android, install Urdu and Hindi voices in Settings → Text-to-speech.</p>
   </section>
 
+  <section class="sec" id="secDevices" hidden>
+    <div class="sec" id="devPhone" hidden>
+      <div class="row" style="align-items:center;justify-content:space-between"><span class="note"><b>This phone</b> · phone control</span><span class="badge off" id="accBadge">Off</span></div>
+      <div class="row"><button class="btn primary" id="accBtn">Turn on phone control</button><button class="btn" id="pageUrlBtn">Change Jarvis link</button></div>
+      <p class="note">In Accessibility, open <b>Jarvis</b> (it may be under “Downloaded apps” or “Installed apps”) and turn it on. Jarvis can then swipe to the next reel, go back, go home and type for you. Come back here and the badge turns green.</p>
+    </div>
+    <div class="sec" id="devLaptop" hidden>
+      <div class="row" style="align-items:center;justify-content:space-between"><span class="note"><b>This laptop</b> · Jarvis Laptop Helper</span><span class="badge off" id="helperBadge">Not paired</span></div>
+      <div class="field"><label for="helperCode">Pairing code (shown in the helper window)</label>
+        <input id="helperCode" type="text" autocomplete="off" maxlength="6" placeholder="e.g. 7K2P9Q" style="text-transform:uppercase;letter-spacing:.2em"></div>
+      <div class="row"><button class="btn primary" id="pairBtn">Pair laptop</button></div>
+      <span class="msgline" id="helperMsg"></span>
+      <p class="note">First double-click <b>Start Jarvis Helper</b> on this laptop. If Chrome or Edge asks to let this site connect to apps or devices on this computer, click <b>Allow</b>.</p>
+    </div>
+    <div class="sec" id="devOther" hidden>
+      <p class="note">To let Jarvis open apps and swipe reels on this phone without tapping, install the <b>Jarvis app</b> and open Jarvis from it. In a phone browser, Jarvis can only show buttons.</p>
+    </div>
+  </section>
+
+  <section class="sec" id="secTrain" hidden>
+    <p class="note">Teach Jarvis about you, your work and how you want answers. One point per line. Jarvis follows this in every conversation, on every device. You can also just say: “Jarvis, yaad rakho ke…”.</p>
+    <div class="field"><label for="profileBox">What Jarvis knows about you</label>
+      <textarea id="profileBox" rows="12" placeholder="- My name is Aqeel. Call me Aqeel sir.&#10;- I run the Sybrid sales floor. The shift is 8 PM to 5 AM Pakistan time.&#10;- Keep answers very short unless I ask for detail."></textarea></div>
+    <div class="row"><button class="btn primary" id="saveProfile">Save</button></div>
+    <span class="msgline" id="profileMsg"></span>
+  </section>
+
   <section class="sec" id="secChat" hidden>
     <p class="note">Jarvis remembers the last few messages so you can ask follow-up questions.</p>
     <div class="row"><button class="btn danger" id="clearChat">Clear chat</button></div>
@@ -263,6 +297,100 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let serverUrl = store.get("jarvis_url"), pin = store.get("jarvis_pin");
 let history = [], busy = false, ctl = null, urduMode = false;
 let rec = null, listening = false;
+const NATIVE = (window.JarvisNative && typeof window.JarvisNative.doAction === "function") ? window.JarvisNative : null;
+const IS_PHONE = /Android|iPhone|iPad/i.test(navigator.userAgent);
+let nativeSpeaking = false;
+
+/* Events sent by the Jarvis Android app */
+window.JarvisNativeEvents = {
+  onListen(e){
+    if(e.type === "start"){ listening = true; setStatus("listening","Listening"); hint.textContent = urduMode ? "بولیں… میں سن رہا ہوں" : "Listening… speak now."; }
+    else if(e.type === "partial"){ $("q").value = e.text || ""; }
+    else if(e.type === "final"){ listening = false; $("q").value = ""; setStatus("ready","Ready"); if((e.text || "").trim()) ask(e.text); }
+    else if(e.type === "error"){ listening = false; setStatus("ready","Ready");
+      hint.textContent = e.error === "not-allowed" ? "Allow the microphone for Jarvis in your phone settings." : e.error === "no-speech" ? "I didn't hear anything. Tap the orb and try again." : "Tap the orb and try again."; }
+  },
+  onSpeak(e){
+    if(e.type === "start"){ nativeSpeaking = true; setStatus("speaking","Speaking"); }
+    else { nativeSpeaking = false; if(statusEl.dataset.s === "speaking") setStatus("ready","Ready"); }
+  },
+  onWake(cmd){ chime(); ask(cmd); },
+  onBackground(on){ $("wakeBtn").setAttribute("aria-pressed", String(!!on)); store.set("jarvis_wake", on ? "1" : ""); idleHint(); }
+};
+
+/* ---------- Devices: phone app or laptop helper ---------- */
+const HELPER = "http://127.0.0.1:47811";
+function helperCode(){ return store.get("jarvis_helper"); }
+function deviceMode(){ if(NATIVE) return "phone"; if(!IS_PHONE && helperCode()) return "laptop"; return ""; }
+async function helperFetch(path, body, code){
+  const opts = { method: body ? "POST" : "GET", headers: { "X-Jarvis-Code": code || helperCode(), "Content-Type": "application/json" } };
+  if(body) opts.body = JSON.stringify(body);
+  let res;
+  try{ res = await fetch(HELPER + path, Object.assign({ targetAddressSpace: "loopback" }, opts)); }
+  catch(e){ if(e instanceof TypeError && /addressspace/i.test(e.message || "")) res = await fetch(HELPER + path, opts); else throw e; }
+  return res.json();
+}
+function noDeviceMsg(){
+  if(IS_PHONE) return urduMode ? "اس فون کو چلانے کے لیے جاروس ایپ انسٹال کریں۔" : "Install the Jarvis app on this phone so I can control it.";
+  return urduMode ? "لیپ ٹاپ کو چلانے کے لیے جاروس ہیلپر شروع کریں اور سیٹنگز میں جوڑیں۔" : "Start the Jarvis laptop helper and pair it in Settings, Devices, so I can control this laptop.";
+}
+async function runDevice(a){
+  if(NATIVE){ try{ return JSON.parse(NATIVE.doAction(JSON.stringify(a))); }catch(e){ return { ok:false, error:String(e) }; } }
+  if(!IS_PHONE && helperCode()){
+    try{ return await helperFetch("/do", a); }
+    catch(e){ return { ok:false, error: urduMode ? "لیپ ٹاپ ہیلپر بند ہے۔ Start Jarvis Helper پر ڈبل کلک کریں۔" : "The laptop helper isn't running. Double-click Start Jarvis Helper on your laptop." }; }
+  }
+  return { ok:false, unavailable:true };
+}
+/* Quick commands that don't need the brain (same list as the phone app). */
+function localCommand(said){
+  let s = said.toLowerCase().replace(/^\s*(hey |ok |okay )?jarvis[\s,]*/i, "").replace(/[.,!?،۔؟]/g, " ").replace(/\s+/g, " ").trim()
+    .replace(/^(please|plz) /, "").replace(/ (please|plz|karo|kar do|kardo|kr do)$/, "").trim();
+  const map = [
+    [/^(next|next video|next reel|next one|agli|agli video|agli reel|aage|agay|aagay|skip|swipe up)$/, "next"],
+    [/^(previous|previous video|previous reel|pichli|pichli video|pichli reel|peeche|piche|swipe down)$/, "previous"],
+    [/^(back|go back|wapas|wapis|wapas jao)$/, "back"],
+    [/^(home|go home|home screen)$/, "home"],
+    [/^(pause|play|resume|ruko|chalao|stop video)$/, "play_pause"],
+    [/^(volume up|louder|awaz tez|awaz barhao|awaaz tez|awaaz barhao|volume barhao|volume tez)$/, "volume_up"],
+    [/^(volume down|quieter|awaz kam|awaaz kam|volume kam)$/, "volume_down"],
+    [/^(mute|unmute)$/, "mute"],
+    [/^(scroll down|neeche|niche)$/, "scroll_down"],
+    [/^(scroll up|upar|oopar)$/, "scroll_up"],
+    [/^(lock|lock screen|lock phone|lock laptop|lock the laptop)$/, "lock_screen"]
+  ];
+  for(const [re, act] of map) if(re.test(s)) return { action: act };
+  let target = null, m;
+  if((m = s.match(/^(open|launch|start|kholo) (.+)$/))) target = m[2];
+  else if((m = s.match(/^(.+) (kholo|open karo|open|chalao)$/))) target = m[1];
+  if(target){ target = target.replace(/^(my|the) /, "").trim(); if(target && target.split(" ").length <= 4) return { action:"open_app", target }; }
+  return null;
+}
+function showOpenCard(url, intent, label){
+  const android = /Android/i.test(navigator.userAgent);
+  const href = android && intent ? intent : url;
+  const link = el("a", { class:"btn primary linkbtn bigopen", href:href, target: android ? "_self" : "_blank", rel:"noopener", text:"↗ Open " + (label || "link") });
+  const card = el("div", { class:"card" }, [ el("div", { class:"card-hd" }, [ el("b", { text:"Shortcut" }) ]), el("div", { class:"acts" }, [link]) ]);
+  log.append(card); card.scrollIntoView({block:"end", behavior:"smooth"});
+  try{ if(navigator.userActivation && navigator.userActivation.isActive){ if(android && intent) location.href = intent; else window.open(url, "_blank", "noopener"); } }catch(e){}
+}
+async function refreshDevices(){
+  $("devPhone").hidden = !NATIVE; $("devLaptop").hidden = !!NATIVE || IS_PHONE; $("devOther").hidden = !!NATIVE || !IS_PHONE;
+  if(NATIVE){
+    let info = {}; try{ info = JSON.parse(NATIVE.info()); }catch(e){}
+    const b = $("accBadge"); b.textContent = info.accessibility ? "On" : "Off"; b.classList.toggle("off", !info.accessibility);
+    $("accBtn").textContent = info.accessibility ? "Phone control settings" : "Turn on phone control";
+    return;
+  }
+  if(!IS_PHONE){
+    const b = $("helperBadge"), code = helperCode();
+    $("helperCode").value = code;
+    if(!code){ b.textContent = "Not paired"; b.classList.add("off"); return; }
+    b.textContent = "Checking…";
+    try{ const r = await helperFetch("/ping"); b.textContent = r.ok ? "Connected · " + r.name : "Wrong code"; b.classList.toggle("off", !r.ok); }
+    catch(e){ b.textContent = "Helper not running"; b.classList.add("off"); }
+  }
+}
 
 /* ---------- UI state ---------- */
 function setStatus(s, t){
@@ -273,6 +401,7 @@ function setStatus(s, t){
   if(s === "ready"){ idleHint(); resumeWake(); }
 }
 function idleHint(){
+  if(wakeOn() && NATIVE){ hint.textContent = urduMode ? '"جاروس" کہیں — دوسری ایپس میں بھی سنتا ہوں' : 'Say "Jarvis", even inside other apps.'; statusEl.dataset.s = "wake"; statusText.textContent = "Say Jarvis"; return; }
   if(wakeOn()){ hint.textContent = urduMode ? '"جاروس" کہیں، پھر اپنا سوال پوچھیں' : 'Say "Jarvis", then your question.'; statusEl.dataset.s = "wake"; statusText.textContent = "Say Jarvis"; }
   else hint.textContent = urduMode ? "اورب دبائیں اور بولیں" : "Tap the orb and speak.";
 }
@@ -291,11 +420,24 @@ function setText(el, text){ el.textContent = text; el.parentElement.classList.to
 /* ---------- Settings panel ---------- */
 function openPanel(tab){ $("panel").hidden = false; $("scrim").hidden = false; showTab(tab || "Conn"); $("urlInput").value = serverUrl; $("pinInput").value = pin; fillVoices(); }
 function closePanel(){ $("panel").hidden = true; $("scrim").hidden = true; }
-function showTab(name){ for(const n of ["Conn","Voice","Chat"]){ $("tab"+n).setAttribute("aria-selected", String(n===name)); $("sec"+n).hidden = n !== name; } }
+function showTab(name){ for(const n of ["Conn","Voice","Devices","Train","Chat"]){ $("tab"+n).setAttribute("aria-selected", String(n===name)); $("sec"+n).hidden = n !== name; } if(name === "Train") loadProfile(); if(name === "Devices") refreshDevices(); }
+async function loadProfile(){
+  const m = $("profileMsg"); m.className = "msgline";
+  if(!serverUrl || !pin){ m.textContent = "Connect Jarvis first (Connection tab)."; return; }
+  m.textContent = "Loading…";
+  try{ const r = await callBrain({ action:"get_profile" }, 30000); if(r.ok){ $("profileBox").value = r.profile || ""; m.textContent = ""; } else { m.textContent = r.error; m.classList.add("bad"); } }
+  catch(e){ m.textContent = "Could not reach the server."; m.classList.add("bad"); }
+}
+$("saveProfile").onclick = async ()=>{
+  const m = $("profileMsg"); m.className = "msgline"; m.textContent = "Saving…";
+  try{ const r = await callBrain({ action:"save_profile", profile:$("profileBox").value }, 30000);
+    if(r.ok){ m.textContent = "Saved. Jarvis will use this from now on."; m.classList.add("good"); } else { m.textContent = r.error; m.classList.add("bad"); } }
+  catch(e){ m.textContent = "Could not reach the server."; m.classList.add("bad"); }
+};
 $("openSettings").onclick = ()=>openPanel(serverUrl && pin ? "Voice" : "Conn");
 $("closeSettings").onclick = closePanel; $("scrim").onclick = closePanel;
 document.addEventListener("keydown", e=>{ if(e.key === "Escape" && !$("panel").hidden) closePanel(); });
-for(const n of ["Conn","Voice","Chat"]) $("tab"+n).onclick = ()=>showTab(n);
+for(const n of ["Conn","Voice","Devices","Train","Chat"]) $("tab"+n).onclick = ()=>showTab(n);
 function markConnected(ok){ const b = $("connBadge"); b.textContent = ok ? "Connected" : "Not connected"; b.classList.toggle("off", !ok); }
 
 /* ---------- Brain (Apps Script) ---------- */
@@ -320,6 +462,7 @@ $("saveConn").onclick = async ()=>{
     if(!r.ok){ serverUrl = oldU; pin = oldP; m.textContent = r.error; m.classList.add("bad"); return; }
   }catch(e){ serverUrl = oldU; pin = oldP; m.textContent = "Could not reach the server. Check the URL and your internet."; m.classList.add("bad"); return; }
   store.set("jarvis_url", u); store.set("jarvis_pin", p); markConnected(true);
+  if(NATIVE){ try{ NATIVE.setBrain(u, p); }catch(e){} }
   m.textContent = "Connected."; m.classList.add("good");
   setTimeout(()=>{ closePanel(); speak("Online and ready, sir."); }, 600);
 };
@@ -359,28 +502,75 @@ $("testEn").onclick = ()=>speak("Good evening sir. All systems are online.");
 $("testUr").onclick = ()=>speak("السلام علیکم سر، میں آپ کی خدمت کے لیے حاضر ہوں۔", "अस्सलाम अलैकुम सर, मैं आपकी ख़िदमत के लिए हाज़िर हूँ।");
 try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = ()=>{ if(!$("panel").hidden) fillVoices(); }; }catch(e){}
 
-function speak(text, alt){
+/* Android Chrome only plays speech after the first tap on the page, so we "unlock" it on the first touch. */
+let audioUnlocked = false, speakWatch = null;
+function unlockAudio(){
+  if(audioUnlocked) return; audioUnlocked = true;
+  try{ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); }catch(e){}
+  try{ chime.ac = chime.ac || new (window.AudioContext || window.webkitAudioContext)(); chime.ac.resume(); }catch(e){}
+}
+["pointerdown","touchstart","keydown"].forEach(ev=>document.addEventListener(ev, unlockAudio, { capture:true, passive:true }));
+
+function chunks(t){
+  const parts = String(t).replace(/\s+/g," ").match(/[^.!?۔؟।]+[.!?۔؟।]*\s*/g) || [t];
+  const out = []; let cur = "";
+  parts.forEach(p=>{ if((cur + p).length > 180 && cur){ out.push(cur); cur = p; } else cur += p; });
+  if(cur.trim()) out.push(cur);
+  return out;
+}
+function speak(text, alt, plain){
+  if(NATIVE){
+    if(!$("speakToggle").checked){ setStatus("ready","Ready"); return; }
+    const urduN = /[\u0600-\u06FF]/.test(text) || !!alt;
+    try{ NATIVE.speak(String(text), String(alt || ""), urduN ? "ur" : "en"); }catch(e){ setStatus("ready","Ready"); }
+    return;
+  }
   if(!$("speakToggle").checked || !("speechSynthesis" in window)){ setStatus("ready","Ready"); return; }
   try{
-    speechSynthesis.cancel();
     const urdu = /[؀-ۿ]/.test(text) || !!alt;
     let say = text, v = null;
-    if(urdu){
-      const urScript = /[\u0600-\u06FF]/.test(text);
-      v = chosenVoice("ur");
-      if(v && /^ur/i.test(v.lang) && !urScript && alt){
-        const hi = voices().filter(x=>/^hi/i.test(x.lang)).sort((a,b)=>rank(b)-rank(a))[0];
-        if(hi){ v = hi; say = alt; }                            // Roman Urdu reply: Hindi voice reads it better
-      } else if((!v || /^hi/i.test(v.lang)) && alt) say = alt;  // Hindi voice reads the Devanagari copy
-    } else v = chosenVoice("en");
-    const u = new SpeechSynthesisUtterance(say);
-    if(v){ u.voice = v; u.lang = v.lang; } else u.lang = urdu ? "hi-IN" : "en-GB";
-    u.rate = 1.0;
-    u.pitch = v && !isMaleVoice(v) ? 0.72 : 0.92;   // deepen if only a female voice exists
-    u.onstart = ()=>setStatus("speaking", "Speaking");
-    u.onend = u.onerror = ()=>setStatus("ready", "Ready");
-    speechSynthesis.speak(u);
+    if(!plain){
+      if(urdu){
+        const urScript = /[؀-ۿ]/.test(text);
+        v = chosenVoice("ur");
+        if(v && /^ur/i.test(v.lang) && !urScript && alt){
+          const hi = voices().filter(x=>/^hi/i.test(x.lang)).sort((a,b)=>rank(b)-rank(a))[0];
+          if(hi){ v = hi; say = alt; }
+        } else if((!v || /^hi/i.test(v.lang)) && alt) say = alt;
+      } else v = chosenVoice("en");
+    } else if(urdu && alt) say = alt;
+    const list = chunks(say);
+    let started = false;
+    const go = ()=>{
+      list.forEach((piece, i)=>{
+        const u = new SpeechSynthesisUtterance(piece);
+        if(v){ u.voice = v; u.lang = v.lang; } else u.lang = urdu ? "hi-IN" : "en-US";
+        u.rate = 1.0; u.pitch = v && !isMaleVoice(v) ? 0.72 : (v ? 0.92 : 0.8);
+        u.onstart = ()=>{ if(!started){ started = true; clearTimeout(speakWatch); setStatus("speaking","Speaking"); } };
+        u.onend = ()=>{ if(i === list.length - 1) setStatus("ready","Ready"); };
+        u.onerror = e=>{
+          if(e.error === "interrupted" || e.error === "canceled"){ if(i === list.length - 1) setStatus("ready","Ready"); return; }
+          if(!plain && !started){ speechSynthesis.cancel(); speak(text, alt, true); return; }   // retry with the phone's default voice
+          setStatus("ready","Ready");
+        };
+        speechSynthesis.speak(u);
+      });
+      try{ speechSynthesis.resume(); }catch(e){}
+    };
+    if(speechSynthesis.speaking || speechSynthesis.pending){ speechSynthesis.cancel(); setTimeout(go, 160); } else go();
+    clearTimeout(speakWatch);
+    speakWatch = setTimeout(()=>{
+      if(!started){
+        speechSynthesis.cancel(); setStatus("ready","Ready");
+        hint.textContent = urduMode ? "آواز نہیں چلی؟ جواب کے نیچے 🔊 دبائیں۔" : "No sound? Tap 🔊 under the answer.";
+      }
+    }, 4000);
   }catch(e){ setStatus("ready","Ready"); }
+}
+function addReplay(msgTxtEl, text, alt){
+  const b = document.createElement("button"); b.className = "replay"; b.type = "button"; b.textContent = "🔊 Play";
+  b.onclick = ()=>{ unlockAudio(); speak(text, alt); };
+  msgTxtEl.parentElement.append(b);
 }
 
 /* ---------- Ask ---------- */
@@ -394,6 +584,14 @@ async function ask(question){
   stopWake();
   if(pendingDraft && SEND_RE.test(question)){ addMsg("You", question, "me"); sendDraft(pendingDraft); return; }
   if(pendingDraft && CANCEL_RE.test(question)){ addMsg("You", question, "me"); discardDraft(pendingDraft); return; }
+  const quick = deviceMode() ? localCommand(question) : null;
+  if(quick){
+    addMsg("You", question, "me");
+    const r = await runDevice(quick);
+    if(r.ok){ const t = addMsg("Jarvis", "✓ " + (r.message || "Done"), "ai"); setStatus("ready","Ready"); }
+    else { const m = r.error || noDeviceMsg(); addMsg("Jarvis", m, "ai err"); speak(m); }
+    return;
+  }
   addMsg("You", question, "me");
   history.push({ role:"user", text: question });
   if(history.length > 20) history = history.slice(-20);
@@ -404,7 +602,7 @@ async function ask(question){
     if(pendingDraft) payload.pendingDraft = draftValues(pendingDraft);
     const r = await callBrain(payload);
     if(r.ok){
-      setText(out, r.text); history.push({ role:"model", text: r.text });
+      setText(out, r.text); addReplay(out, r.text, r.speak); history.push({ role:"model", text: r.text });
       if(r.action) handleAction(r.action);
       busy = false; speak(r.text, r.speak);
     } else {
@@ -428,11 +626,23 @@ function el(tag, attrs, kids){
   (kids||[]).forEach(c=>c && e.append(c)); return e;
 }
 function handleAction(a){
+  if(a.type === "remembered"){ return; }
   if(a.type === "open"){
-    const link = el("a", { class:"btn primary linkbtn", href:a.url, target:"_blank", rel:"noopener", text:"↗ " + (a.label || "Open") });
-    const card = el("div", { class:"card" }, [ el("div", { class:"card-hd" }, [ el("b", { text:"Shortcut" }) ]), el("div", { class:"acts" }, [link]) ]);
-    log.append(card); card.scrollIntoView({block:"end", behavior:"smooth"});
-    try{ window.open(a.url, "_blank", "noopener"); }catch(e){}
+    if(deviceMode()){
+      const req = NATIVE ? { action:"open_app", target:a.label || a.app || "", pkg:a.pkg || "", intent:a.intent || "", url:a.url || "", section:a.section || "home" }
+                         : { action:"open_website", url:a.url, target:a.label || "" };
+      runDevice(req).then(r=>{ if(!r.ok) showOpenCard(a.url, a.intent, a.label); });
+    } else showOpenCard(a.url, a.intent, a.label);
+    return;
+  }
+  if(a.type === "device"){
+    runDevice(a).then(r=>{
+      if(r.ok) return;
+      if(r.unavailable){
+        if(a.url) showOpenCard(a.url, a.intent, a.target || "link");
+        else { const m = noDeviceMsg(); addMsg("Jarvis", m, "ai err"); speak(m); }
+      } else { const m = r.error || "I couldn't do that."; addMsg("Jarvis", m, "ai err"); speak(m); }
+    });
     return;
   }
   if(a.type === "email_draft"){
@@ -510,6 +720,13 @@ async function discardDraft(d){
 /* ---------- Manual mic (orb) ---------- */
 function listen(){
   stopWake();
+  if(NATIVE){
+    if(nativeSpeaking){ NATIVE.stopSpeak(); return; }
+    if(busy){ ctl && ctl.abort(); return; }
+    if(listening){ NATIVE.stopListen(); return; }
+    NATIVE.listen(urduMode ? "ur" : "en");
+    return;
+  }
   if(window.speechSynthesis && speechSynthesis.speaking){ speechSynthesis.cancel(); setStatus("ready","Ready"); return; } // tap = stop talking
   if(busy){ ctl && ctl.abort(); return; }
   if(!SR){ hint.textContent = "Voice input needs Chrome or Edge (iPhone: Safari). You can type below."; return; }
@@ -528,6 +745,7 @@ function setLang(ur){
   urduMode = ur;
   $("langEn").setAttribute("aria-pressed", String(!ur)); $("langUr").setAttribute("aria-pressed", String(ur));
   store.set("jarvis_lang", ur ? "ur" : "en");
+  if(NATIVE){ try{ NATIVE.setLang(ur ? "ur" : "en"); }catch(e){} }
   $("q").placeholder = ur ? "جاروس سے کچھ بھی پوچھیں…" : "Ask Jarvis anything…"; $("q").dir = ur ? "rtl" : "ltr";
   if(wakeRec){ stopWake(); resumeWake(); }
   if(statusEl.dataset.s === "ready" || statusEl.dataset.s === "wake") idleHint();
@@ -551,7 +769,7 @@ function stopWake(){
   clearTimeout(wakeRestart); clearTimeout(awaitTimer); awaiting = false;
   if(wakeRec){ const r = wakeRec; wakeRec = null; wakeRunning = false; try{ r.onend = null; r.abort(); }catch(e){} }
 }
-function wakeAllowed(){ return wakeOn() && SR && !busy && !listening && document.visibilityState === "visible" && !(window.speechSynthesis && speechSynthesis.speaking) && serverUrl && pin; }
+function wakeAllowed(){ return !NATIVE && wakeOn() && SR && !busy && !listening && document.visibilityState === "visible" && !(window.speechSynthesis && speechSynthesis.speaking) && serverUrl && pin; }
 function resumeWake(){ clearTimeout(wakeRestart); wakeRestart = setTimeout(()=>{ if(wakeAllowed() && !wakeRunning) startWake(); }, 400); }
 function startWake(){
   if(!wakeAllowed() || wakeRunning) return;
@@ -583,6 +801,12 @@ function startWake(){
   wakeRec = r; try{ r.start(); }catch(e){ wakeRec = null; wakeRunning = false; }
 }
 function setWake(on){
+  if(NATIVE){
+    if(on && !(serverUrl && pin)){ openPanel("Conn"); return; }
+    NATIVE.setBackground(!!on);
+    $("wakeBtn").setAttribute("aria-pressed", String(!!on)); store.set("jarvis_wake", on ? "1" : ""); idleHint();
+    return;
+  }
   if(on && !SR){ hint.textContent = "The wake word needs Chrome or Edge."; on = false; }
   if(on && !(serverUrl && pin)){ openPanel("Conn"); on = false; }
   $("wakeBtn").setAttribute("aria-pressed", String(on)); store.set("jarvis_wake", on ? "1" : "");
@@ -597,13 +821,31 @@ $("langEn").onclick = ()=>setLang(false);
 $("langUr").onclick = ()=>setLang(true);
 $("wakeBtn").onclick = ()=>setWake(!wakeOn());
 document.querySelectorAll(".chip").forEach(c=>c.onclick = ()=>ask(c.dataset.q));
+$("accBtn").onclick = ()=>{ if(NATIVE) NATIVE.openAccessibility(); };
+$("pageUrlBtn").onclick = ()=>{ if(NATIVE) NATIVE.changePageUrl(); };
+$("pairBtn").onclick = async ()=>{
+  const code = $("helperCode").value.trim().toUpperCase(), m = $("helperMsg"); m.className = "msgline";
+  if(!/^[A-Z0-9]{6}$/.test(code)){ m.textContent = "Type the 6-character code from the helper window."; m.classList.add("bad"); return; }
+  m.textContent = "Pairing…";
+  try{
+    const r = await helperFetch("/ping", null, code);
+    if(r.ok){ store.set("jarvis_helper", code); m.textContent = "Paired with " + r.name + "."; m.classList.add("good"); refreshDevices(); }
+    else { m.textContent = r.error || "Wrong code."; m.classList.add("bad"); }
+  }catch(e){ m.textContent = "Can't reach the helper. Is the Jarvis Helper window open? If the browser asked to connect to this computer, click Allow."; m.classList.add("bad"); }
+};
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible" && !$("panel").hidden && !$("secDevices").hidden) refreshDevices(); });
 $("clearChat").onclick = ()=>{ pendingDraft = null; history = []; log.innerHTML = ""; document.body.classList.remove("chatting"); closePanel(); };
 
 /* ---------- Start ---------- */
 setLang(store.get("jarvis_lang") === "ur");
 markConnected(!!(serverUrl && pin));
+if(NATIVE){
+  document.body.classList.add("in-app");
+  if(serverUrl && pin){ try{ NATIVE.setBrain(serverUrl, pin); }catch(e){} }
+  try{ const info = JSON.parse(NATIVE.info()); if(info.background) store.set("jarvis_wake","1"); else store.set("jarvis_wake",""); }catch(e){}
+}
 if(!serverUrl || !pin){ openPanel("Conn"); }
-else if(store.get("jarvis_wake") === "1"){ $("wakeBtn").setAttribute("aria-pressed","true"); resumeWake(); }
+else if(store.get("jarvis_wake") === "1"){ $("wakeBtn").setAttribute("aria-pressed","true"); if(!NATIVE) resumeWake(); }
 setStatus("ready","Ready");
 </script>
 </body>
