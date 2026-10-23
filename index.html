@@ -1,0 +1,243 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jarvis</title><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Jarvis"><meta name="theme-color" content="#0b1118"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+/* Layout: one-screen console — status line, glowing orb mic, transcript log, input bar pinned below */
+:root{
+  --bg:#0b1118; --panel:#121b25; --line:#22303e; --fg:#dfe8ef; --muted:#8597a8;
+  --ice:#8fd8ff; --amber:#ffb454; --danger:#ff7a6b;
+  --display:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.55}
+.app{height:100%;display:flex;flex-direction:column;max-width:760px;margin:0 auto;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 16px;gap:16px;box-sizing:border-box}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:.18em;margin:0;text-transform:uppercase}
+h1 span{color:var(--ice)}
+.status{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status[data-s="listening"] .dot{background:var(--danger);box-shadow:0 0 10px var(--danger)}
+.status[data-s="thinking"] .dot{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.status[data-s="speaking"] .dot,.status[data-s="ready"] .dot{background:var(--ice);box-shadow:0 0 10px var(--ice)}
+.stage{display:flex;flex-direction:column;align-items:center;gap:10px}
+.orb{width:148px;height:148px;border-radius:50%;border:0;cursor:pointer;position:relative;
+  background:radial-gradient(circle at 50% 50%, #e9f8ff 0 9%, var(--ice) 22%, #1d4a66 52%, transparent 72%);
+  box-shadow:0 0 0 1px var(--line),0 0 40px rgba(143,216,255,.25);transition:transform .2s}
+.orb::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:1px dashed rgba(143,216,255,.45)}
+.orb:hover{transform:scale(1.03)}
+.orb:focus-visible{outline:2px solid var(--amber);outline-offset:14px}
+.orb.listening{background:radial-gradient(circle at 50% 50%, #fff2e0 0 9%, var(--amber) 24%, #66401a 54%, transparent 72%);animation:pulse 1.2s ease-in-out infinite}
+.orb.thinking::after{animation:spin 2.4s linear infinite;border-color:rgba(255,180,84,.6)}
+@keyframes pulse{50%{box-shadow:0 0 0 1px var(--line),0 0 70px rgba(255,180,84,.5)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.orb,.orb::after{animation:none!important}}
+.hint{font-size:13px;color:var(--muted);text-align:center;max-width:46ch;margin:0}
+.log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:4px 2px}
+.msg{max-width:85%;padding:10px 14px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.me{align-self:flex-end;background:#1c2a38;border:1px solid var(--line)}
+.ai{align-self:flex-start;background:var(--panel);border-left:2px solid var(--ice);border-radius:4px 12px 12px 4px}
+.ai.err{border-left-color:var(--danger);color:var(--danger)}
+.who{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.ex{font-family:var(--mono);font-size:10.5px;color:var(--amber);letter-spacing:.1em;text-transform:uppercase;align-self:center}
+form{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font:inherit}
+input[type=text]:focus{outline:2px solid var(--ice);outline-offset:1px}
+button.b{font-family:var(--display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:13px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:0 14px;cursor:pointer}
+button.b.primary{background:var(--ice);color:#06121b;border-color:var(--ice)}
+button.b:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.tools{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);align-items:center}
+.tools label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.tools a{color:var(--ice);cursor:pointer;text-decoration:underline}
+</style>
+<style>
+.settings{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.settings h2{font-family:var(--display);font-size:14px;letter-spacing:.14em;text-transform:uppercase;margin:0;color:var(--amber)}
+.settings p{margin:0;font-size:13px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row input{flex:1;min-width:180px}
+.small{font-family:var(--mono);font-size:11px;color:var(--muted)}
+</style>
+
+<style>
+/* Bigger chat area: page can scroll, chat gets real height, orb shrinks once chatting */
+html,body{height:auto;min-height:100%}
+.app{height:auto;min-height:100vh}
+.log{flex:1 0 auto;min-height:55vh;max-height:none;overflow-y:visible;background:rgba(18,27,37,.55);border:1px solid var(--line);border-radius:12px;padding:14px}
+.msg{font-size:16px;max-width:92%}
+.stage{transition:gap .2s}
+body.chatting .orb{width:84px;height:84px}
+body.chatting .orb::after{inset:-6px}
+body.chatting .hint{font-size:12px}
+form{position:sticky;bottom:0;background:var(--bg);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));z-index:5}
+@media (max-width:520px){ .orb{width:110px;height:110px} .log{min-height:50vh} }
+</style>
+</head><body style="margin:0">
+<div class="app">
+  <header>
+    <h1>J<span>.</span>A<span>.</span>R<span>.</span>V<span>.</span>I<span>.</span>S</h1>
+    <div class="status" id="status" data-s="ready"><span class="dot"></span><span id="statusText">Ready</span></div>
+  </header>
+
+  <div class="settings" id="settings" hidden>
+    <h2>Setup — connect to your brain</h2>
+    <p>Paste your Apps Script Web app URL and your Jarvis PIN. They are saved only on this device.</p>
+    <div class="row">
+      <input type="text" id="urlInput" placeholder="Web app URL (https://script.google.com/macros/s/…/exec)" autocomplete="off">
+    </div>
+    <div class="row">
+      <input type="password" id="pinInput" placeholder="Jarvis PIN" autocomplete="off" inputmode="numeric">
+      <button class="b primary" id="saveKey" type="button">Save</button>
+    </div>
+    <span class="small" id="setupMsg">You only need to do this once on each device.</span>
+  </div>
+
+  <div class="stage">
+    <button class="orb" id="orb" aria-label="Tap to speak"></button>
+    <p class="hint" id="hint">Tap the orb and ask your question. Or type below. Jarvis answers out loud.</p>
+  </div>
+
+  <div class="log" id="log" aria-live="polite"></div>
+
+  <div class="tools">
+    <label><input type="checkbox" id="speakToggle" checked> Speak answers</label>
+    <label><input type="checkbox" id="urduVoice"> Urdu voice input</label>
+    <a id="stopSpeak" role="button" tabindex="0">Stop talking</a>
+    <a id="clear" role="button" tabindex="0">Clear chat</a>
+    <a id="openSettings" role="button" tabindex="0">Settings</a>
+  </div>
+
+  <form id="form">
+    <input type="text" id="q" placeholder="Ask Jarvis anything…" autocomplete="off">
+    <button class="b primary" type="submit" id="send">Ask</button>
+  </form>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const log = $("log"), orb = $("orb"), statusEl = $("status"), statusText = $("statusText");
+const store = { get(k){ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+let serverUrl = store.get("jarvis_url"), pin = store.get("jarvis_pin");
+let history = [], busy = false, ctl = null;
+
+function setStatus(s,t){ statusEl.dataset.s=s; statusText.textContent=t; orb.classList.toggle("listening",s==="listening"); orb.classList.toggle("thinking",s==="thinking"); }
+function addMsg(who,text,cls){
+  const d=document.createElement("div"); d.className="msg "+cls;
+  const w=document.createElement("span"); w.className="who"; w.textContent=who;
+  const t=document.createElement("span"); t.textContent=text;
+  d.append(w,t); log.append(d); document.body.classList.add("chatting"); d.scrollIntoView({block:"end",behavior:"smooth"}); return t;
+}
+
+/* ---- Talk to the Apps Script brain ---- */
+async function callBrain(payload, ms){
+  ctl = new AbortController();
+  const timer = setTimeout(()=>ctl.abort("timeout"), ms || 60000);
+  try{
+    // text/plain keeps this a "simple" request so Apps Script accepts it from any site
+    const res = await fetch(serverUrl, { method:"POST", body: JSON.stringify(Object.assign({ pin }, payload)), headers:{ "Content-Type":"text/plain;charset=utf-8" }, signal: ctl.signal, redirect:"follow" });
+    const txt = await res.text();
+    try{ return JSON.parse(txt); }
+    catch(e){ return { ok:false, error: /<html/i.test(txt) ? "The server asked for a Google sign-in. In Apps Script, set 'Who has access' to Anyone and deploy a new version." : "Unexpected reply from the server." }; }
+  } finally { clearTimeout(timer); }
+}
+
+/* ---- Settings ---- */
+function showSettings(show){ $("settings").hidden = !show; if(show){ $("urlInput").value = serverUrl; $("pinInput").value = pin; } }
+$("saveKey").addEventListener("click", async ()=>{
+  const u = $("urlInput").value.trim(), p = $("pinInput").value.trim();
+  if(!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(u)){ $("setupMsg").textContent = "Paste the full Web app URL. It starts with https://script.google.com/macros/s/"; return; }
+  if(!p){ $("setupMsg").textContent = "Enter your Jarvis PIN."; return; }
+  serverUrl = u; pin = p; $("setupMsg").textContent = "Checking connection…";
+  try{
+    const r = await callBrain({ ping:true }, 30000);
+    if(!r.ok){ $("setupMsg").textContent = r.error; return; }
+  }catch(e){ $("setupMsg").textContent = "Could not reach the server. Check the URL and your internet."; return; }
+  store.set("jarvis_url", u); store.set("jarvis_pin", p);
+  showSettings(false); addMsg("Jarvis","Connected, sir. Tap the orb and ask me anything.","ai"); speak("Connected, sir. Ask me anything.");
+});
+
+/* ---- Voice out ---- */
+function speak(text){
+  if(!$("speakToggle").checked || !("speechSynthesis" in window)){ setStatus("ready","Ready"); return; }
+  try{
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const vs = speechSynthesis.getVoices();
+    const urdu = /[؀-ۿ]/.test(text);
+    const pick = urdu ? (vs.find(v=>/^ur/i.test(v.lang)) || vs.find(v=>/^hi/i.test(v.lang)))
+      : (vs.find(v=>/en-GB/i.test(v.lang) && /male|daniel|george|arthur/i.test(v.name)) || vs.find(v=>/en-GB/i.test(v.lang)) || vs.find(v=>/^en/i.test(v.lang)));
+    if(pick) u.voice = pick;
+    u.rate = 1.02; u.pitch = 0.95;
+    u.onstart = ()=>setStatus("speaking","Speaking");
+    u.onend = u.onerror = ()=>setStatus("ready","Ready");
+    speechSynthesis.speak(u);
+  }catch(e){ setStatus("ready","Ready"); }
+}
+try{ speechSynthesis.getVoices(); }catch(e){}
+
+/* ---- Ask ---- */
+async function ask(question){
+  question = question.trim(); if(!question || busy) return;
+  if(!serverUrl || !pin){ showSettings(true); addMsg("Jarvis","First connect me in Setup, sir.","ai err"); return; }
+  addMsg("You", question, "me");
+  history.push({ role:"user", text: question });
+  if(history.length > 20) history = history.slice(-20);
+  const out = addMsg("Jarvis","Thinking…","ai");
+  busy = true; $("send").disabled = true; setStatus("thinking","Thinking");
+  try{
+    const r = await callBrain({ history });
+    if(r.ok){
+      out.textContent = r.text; out.parentElement.scrollIntoView({block:"end"});
+      history.push({ role:"model", text: r.text }); speak(r.text);
+    } else {
+      history.pop(); out.textContent = r.error || "Something went wrong."; out.parentElement.classList.add("err");
+      if(r.badPin) showSettings(true);
+      setStatus("ready","Ready");
+    }
+  }catch(e){
+    history.pop();
+    const timedOut = ctl && ctl.signal.reason === "timeout";
+    const stopped = !timedOut && ctl && ctl.signal.aborted;
+    out.textContent = stopped ? "Stopped." : timedOut ? "The brain did not answer in 60 seconds. Try again." : "Could not reach the Jarvis server. Check your internet and try again.";
+    if(!stopped) out.parentElement.classList.add("err");
+    setStatus("ready","Ready");
+  }finally{ busy = false; $("send").disabled = false; }
+}
+
+/* ---- Ears ---- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, listening = false;
+function listen(){
+  try{ speechSynthesis.cancel(); }catch(e){}
+  if(busy){ ctl && ctl.abort(); return; }
+  if(!SR){ $("hint").textContent = "Voice input needs Google Chrome or Microsoft Edge (on iPhone: Safari). You can still type below."; return; }
+  if(listening){ rec.stop(); return; }
+  rec = new SR();
+  rec.lang = $("urduVoice").checked ? "ur-PK" : "en-US";
+  rec.interimResults = true;
+  rec.onstart = ()=>{ listening = true; setStatus("listening","Listening"); $("hint").textContent = "Listening… speak now. Tap the orb again to stop."; };
+  rec.onresult = ev=>{ let t=""; for(const r of ev.results) t += r[0].transcript; $("q").value = t; };
+  rec.onerror = ev=>{
+    listening = false; setStatus("ready","Ready");
+    $("hint").textContent = ev.error === "not-allowed" ? "Microphone is blocked. Tap the lock icon next to the address and allow the microphone." :
+      ev.error === "no-speech" ? "I didn't hear anything. Tap the orb and try again." : "Voice error: " + ev.error + ". You can type below.";
+  };
+  rec.onend = ()=>{
+    listening = false; if(statusEl.dataset.s === "listening") setStatus("ready","Ready");
+    const q = $("q").value; if(q.trim()){ $("q").value = ""; $("hint").textContent = "Tap the orb and ask your question. Or type below."; ask(q); }
+  };
+  try{ rec.start(); }catch(e){}
+}
+
+orb.addEventListener("click", listen);
+$("form").addEventListener("submit", e=>{ e.preventDefault(); const q=$("q").value; $("q").value=""; ask(q); });
+const act = (id,fn)=>{ const el=$(id); el.addEventListener("click",fn); el.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(); } }); };
+act("stopSpeak", ()=>{ try{ speechSynthesis.cancel(); }catch(e){} ctl && ctl.abort(); setStatus("ready","Ready"); });
+act("clear", ()=>{ history=[]; log.innerHTML=""; document.body.classList.remove("chatting"); });
+act("openSettings", ()=>showSettings($("settings").hidden));
+
+if(!serverUrl || !pin){ showSettings(true); addMsg("Jarvis","Hello sir. Connect me to my brain in Setup above.","ai"); }
+else addMsg("Jarvis","Welcome back, sir. Tap the orb and ask me anything.","ai");
+</script>
+</body></html>
