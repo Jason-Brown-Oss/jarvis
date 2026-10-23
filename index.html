@@ -1,243 +1,495 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jarvis</title><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Jarvis"><meta name="theme-color" content="#0b1118"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400&display=swap">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jarvis</title>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#070b11">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap">
 <style>
-/* Layout: one-screen console — status line, glowing orb mic, transcript log, input bar pinned below */
+/* Layout: one-column console. Header bar (name, status, settings), the orb as the hero,
+   the conversation in a framed screen, and a dock pinned to the bottom (language, wake word, input).
+   Settings live in a separate slide-in panel. */
 :root{
-  --bg:#0b1118; --panel:#121b25; --line:#22303e; --fg:#dfe8ef; --muted:#8597a8;
-  --ice:#8fd8ff; --amber:#ffb454; --danger:#ff7a6b;
+  --bg:#070b11; --bg2:#0c131c; --panel:#111a24; --panel2:#16212d; --line:#213041; --line2:#2c3f53;
+  --fg:#e3ebf2; --muted:#8095a8; --ice:#8fd8ff; --ice-deep:#2a6d93; --amber:#ffb454; --danger:#ff7a6b; --ok:#6fe0a8;
   --display:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
   --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --urdu:"Noto Nastaliq Urdu","Jameel Noori Nastaleeq","Urdu Typesetting",serif;
   color-scheme:dark;
 }
-html,body{height:100%}
-body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.55}
-.app{height:100%;display:flex;flex-direction:column;max-width:760px;margin:0 auto;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 16px;gap:16px;box-sizing:border-box}
-header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-h1{font-family:var(--display);font-weight:600;font-size:22px;letter-spacing:.18em;margin:0;text-transform:uppercase}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;min-height:100%}
+body{background:radial-gradient(1200px 600px at 50% -10%, #12243a 0%, transparent 60%), var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.55;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(143,216,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(143,216,255,.035) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(ellipse at 50% 20%,#000 0%,transparent 70%)}
+.app{position:relative;max-width:760px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:calc(14px + env(safe-area-inset-top,0px))}
+
+/* Header */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:6px 4px}
+.brand{display:flex;flex-direction:column;gap:2px}
+h1{font-family:var(--display);font-weight:600;font-size:20px;letter-spacing:.32em;margin:0}
 h1 span{color:var(--ice)}
-.status{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.sub{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.status{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(17,26,36,.7);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.status[data-s="ready"] .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.status[data-s="wake"] .dot{background:var(--ice);box-shadow:0 0 8px var(--ice);animation:blink 2s ease-in-out infinite}
 .status[data-s="listening"] .dot{background:var(--danger);box-shadow:0 0 10px var(--danger)}
 .status[data-s="thinking"] .dot{background:var(--amber);box-shadow:0 0 10px var(--amber)}
-.status[data-s="speaking"] .dot,.status[data-s="ready"] .dot{background:var(--ice);box-shadow:0 0 10px var(--ice)}
-.stage{display:flex;flex-direction:column;align-items:center;gap:10px}
-.orb{width:148px;height:148px;border-radius:50%;border:0;cursor:pointer;position:relative;
-  background:radial-gradient(circle at 50% 50%, #e9f8ff 0 9%, var(--ice) 22%, #1d4a66 52%, transparent 72%);
-  box-shadow:0 0 0 1px var(--line),0 0 40px rgba(143,216,255,.25);transition:transform .2s}
-.orb::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:1px dashed rgba(143,216,255,.45)}
-.orb:hover{transform:scale(1.03)}
-.orb:focus-visible{outline:2px solid var(--amber);outline-offset:14px}
-.orb.listening{background:radial-gradient(circle at 50% 50%, #fff2e0 0 9%, var(--amber) 24%, #66401a 54%, transparent 72%);animation:pulse 1.2s ease-in-out infinite}
-.orb.thinking::after{animation:spin 2.4s linear infinite;border-color:rgba(255,180,84,.6)}
-@keyframes pulse{50%{box-shadow:0 0 0 1px var(--line),0 0 70px rgba(255,180,84,.5)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.orb,.orb::after{animation:none!important}}
-.hint{font-size:13px;color:var(--muted);text-align:center;max-width:46ch;margin:0}
-.log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:4px 2px}
-.msg{max-width:85%;padding:10px 14px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
-.me{align-self:flex-end;background:#1c2a38;border:1px solid var(--line)}
-.ai{align-self:flex-start;background:var(--panel);border-left:2px solid var(--ice);border-radius:4px 12px 12px 4px}
-.ai.err{border-left-color:var(--danger);color:var(--danger)}
-.who{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
-.ex{font-family:var(--mono);font-size:10.5px;color:var(--amber);letter-spacing:.1em;text-transform:uppercase;align-self:center}
-form{display:flex;gap:8px}
-input[type=text]{flex:1;min-width:0;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font:inherit}
-input[type=text]:focus{outline:2px solid var(--ice);outline-offset:1px}
-button.b{font-family:var(--display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:13px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:0 14px;cursor:pointer}
-button.b.primary{background:var(--ice);color:#06121b;border-color:var(--ice)}
-button.b:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
-.tools{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);align-items:center}
-.tools label{display:flex;gap:6px;align-items:center;cursor:pointer}
-.tools a{color:var(--ice);cursor:pointer;text-decoration:underline}
-</style>
-<style>
-.settings{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
-.settings h2{font-family:var(--display);font-size:14px;letter-spacing:.14em;text-transform:uppercase;margin:0;color:var(--amber)}
-.settings p{margin:0;font-size:13px;color:var(--muted)}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-.row input{flex:1;min-width:180px}
-.small{font-family:var(--mono);font-size:11px;color:var(--muted)}
-</style>
+.status[data-s="speaking"] .dot{background:var(--ice);box-shadow:0 0 10px var(--ice)}
+@keyframes blink{50%{opacity:.35}}
+.icon-btn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer}
+.icon-btn:hover{border-color:var(--line2)}
+.icon-btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.icon-btn svg{width:18px;height:18px}
 
-<style>
-/* Bigger chat area: page can scroll, chat gets real height, orb shrinks once chatting */
-html,body{height:auto;min-height:100%}
-.app{height:auto;min-height:100vh}
-.log{flex:1 0 auto;min-height:55vh;max-height:none;overflow-y:visible;background:rgba(18,27,37,.55);border:1px solid var(--line);border-radius:12px;padding:14px}
-.msg{font-size:16px;max-width:92%}
-.stage{transition:gap .2s}
-body.chatting .orb{width:84px;height:84px}
-body.chatting .orb::after{inset:-6px}
-body.chatting .hint{font-size:12px}
-form{position:sticky;bottom:0;background:var(--bg);padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));z-index:5}
-@media (max-width:520px){ .orb{width:110px;height:110px} .log{min-height:50vh} }
+/* Orb hero */
+.stage{display:flex;flex-direction:column;align-items:center;gap:12px;padding-block:22px 14px;transition:padding .3s}
+.orb-wrap{position:relative;width:168px;height:168px;display:grid;place-items:center;transition:width .3s,height .3s}
+.ring{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(143,216,255,.28)}
+.ring.r2{inset:-14px;border-style:dashed;border-color:rgba(143,216,255,.18);animation:spin 40s linear infinite}
+.ring.r3{inset:-30px;border-color:rgba(143,216,255,.08)}
+.orb{position:relative;width:78%;height:78%;border-radius:50%;border:0;cursor:pointer;
+  background:radial-gradient(circle at 50% 45%,#f2fbff 0 7%,var(--ice) 20%,var(--ice-deep) 48%,#0b1a28 70%);
+  box-shadow:0 0 60px rgba(143,216,255,.28),inset 0 0 30px rgba(0,0,0,.35);transition:transform .2s,box-shadow .3s}
+.orb:hover{transform:scale(1.03)}
+.orb:focus-visible{outline:2px solid var(--amber);outline-offset:10px}
+.orb-wrap.listening .orb{background:radial-gradient(circle at 50% 45%,#fff4e4 0 7%,var(--amber) 22%,#7a4a17 50%,#1a1009 72%);animation:pulse 1.1s ease-in-out infinite}
+.orb-wrap.listening .ring{border-color:rgba(255,180,84,.45)}
+.orb-wrap.thinking .ring.r2{border-color:rgba(255,180,84,.55);animation-duration:2.4s}
+.orb-wrap.speaking .orb{animation:speak .5s ease-in-out infinite alternate}
+@keyframes pulse{50%{box-shadow:0 0 90px rgba(255,180,84,.55),inset 0 0 30px rgba(0,0,0,.35)}}
+@keyframes speak{to{transform:scale(1.05);box-shadow:0 0 80px rgba(143,216,255,.45),inset 0 0 30px rgba(0,0,0,.35)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.orb,.ring,.dot{animation:none!important}}
+.hint{margin:0;font-size:13.5px;color:var(--muted);text-align:center;max-width:44ch;min-height:2.6em;text-wrap:balance}
+body.chatting .stage{padding-block:10px 8px}
+body.chatting .orb-wrap{width:96px;height:96px}
+body.chatting .ring.r3{display:none}
+
+/* Conversation */
+.screen{flex:1 0 auto;min-height:46vh;display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,rgba(17,26,36,.75),rgba(12,19,28,.6))}
+.empty{margin:auto;text-align:center;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:10px;align-items:center}
+.empty .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ice)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.chip{border:1px solid var(--line2);background:var(--panel2);color:var(--fg);border-radius:999px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--ice)}
+.chip.ur{font-family:var(--urdu);font-size:13px;line-height:2}
+.msg{max-width:88%;display:flex;flex-direction:column;gap:3px}
+.msg .who{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.msg .txt{padding:11px 15px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15.5px}
+.me{align-self:flex-end;align-items:flex-end}
+.me .txt{background:var(--panel2);border:1px solid var(--line2);border-bottom-right-radius:4px}
+.ai{align-self:flex-start}
+.ai .txt{background:rgba(143,216,255,.07);border:1px solid rgba(143,216,255,.22);border-bottom-left-radius:4px}
+.ai.err .txt{background:rgba(255,122,107,.08);border-color:rgba(255,122,107,.35);color:#ffc1b8}
+.msg.ur .txt{font-family:var(--urdu);line-height:2.3;font-size:16.5px;text-align:right}
+
+/* Dock */
+.dock{position:sticky;bottom:0;z-index:5;display:flex;flex-direction:column;gap:10px;padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,transparent,var(--bg) 22%)}
+.dock-row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--panel)}
+.seg button{background:transparent;color:var(--muted);border:0;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ice);color:#06121b;font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--amber);outline-offset:-2px}
+.seg .ur-lbl{font-family:var(--urdu);font-size:12.5px;line-height:1.6}
+.wake{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);padding:6px 12px 6px 8px;font:inherit;font-size:13px;cursor:pointer}
+.wake .sw{width:30px;height:18px;border-radius:999px;background:var(--line2);position:relative;transition:background .2s}
+.wake .sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--fg);transition:transform .2s}
+.wake[aria-pressed="true"]{color:var(--fg);border-color:rgba(143,216,255,.45)}
+.wake[aria-pressed="true"] .sw{background:var(--ice)}
+.wake[aria-pressed="true"] .sw::after{transform:translateX(12px);background:#06121b}
+.wake:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+form{display:flex;gap:8px}
+#q{flex:1;min-width:0;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:13px 15px;font:inherit;font-size:15.5px}
+#q:focus{outline:2px solid var(--ice);outline-offset:1px}
+#q[dir="rtl"]{font-family:var(--urdu);font-size:14px;line-height:1.9;padding-block:8px}
+.send{border:0;border-radius:14px;background:var(--ice);color:#06121b;font-family:var(--display);font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:13px;padding:0 18px;cursor:pointer}
+.send:disabled{opacity:.5;cursor:default}
+.send:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* Settings panel */
+.scrim{position:fixed;inset:0;background:rgba(3,6,10,.6);backdrop-filter:blur(3px);z-index:20}
+.panel{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);z-index:21;background:var(--bg2);border-left:1px solid var(--line);display:flex;flex-direction:column;
+  padding:calc(16px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) 18px;overflow-y:auto;gap:18px}
+.panel-hd{display:flex;align-items:center;justify-content:space-between}
+.panel-hd h2{font-family:var(--display);font-size:16px;letter-spacing:.2em;text-transform:uppercase;margin:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font:inherit;font-size:13.5px;padding:8px 10px;cursor:pointer;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--ice)}
+.tabs button:focus-visible{outline:2px solid var(--amber)}
+.sec{display:flex;flex-direction:column;gap:14px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;color:var(--muted);letter-spacing:.04em}
+.field input,.field select{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:14px;width:100%}
+.field input:focus,.field select:focus{outline:2px solid var(--ice);outline-offset:1px}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.msgline{font-family:var(--mono);font-size:12px;min-height:1.4em}
+.msgline.bad{color:var(--danger)} .msgline.good{color:var(--ok)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line2);background:var(--panel2);color:var(--fg);border-radius:10px;padding:10px 14px;font:inherit;font-size:13.5px;cursor:pointer}
+.btn.primary{background:var(--ice);border-color:var(--ice);color:#06121b;font-weight:600}
+.btn.danger{color:#ffc1b8;border-color:rgba(255,122,107,.35)}
+.btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.toggle span small{display:block;color:var(--muted);font-size:12px}
+.toggle input{width:20px;height:20px;accent-color:var(--ice)}
+.badge{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ok);border:1px solid rgba(111,224,168,.4);border-radius:999px;padding:2px 8px}
+.badge.off{color:var(--danger);border-color:rgba(255,122,107,.4)}
+@media (max-width:480px){ h1{font-size:17px;letter-spacing:.24em} .sub{display:none} .orb-wrap{width:140px;height:140px} .screen{min-height:42vh;padding:12px} .msg{max-width:94%} }
 </style>
-</head><body style="margin:0">
+</head>
+<body>
 <div class="app">
   <header>
-    <h1>J<span>.</span>A<span>.</span>R<span>.</span>V<span>.</span>I<span>.</span>S</h1>
-    <div class="status" id="status" data-s="ready"><span class="dot"></span><span id="statusText">Ready</span></div>
+    <div class="brand">
+      <h1>J<span>.</span>A<span>.</span>R<span>.</span>V<span>.</span>I<span>.</span>S</h1>
+      <span class="sub">Personal voice assistant</span>
+    </div>
+    <div class="hdr-right">
+      <div class="status" id="status" data-s="ready" aria-live="polite"><span class="dot"></span><span id="statusText">Ready</span></div>
+      <button class="icon-btn" id="openSettings" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
   </header>
 
-  <div class="settings" id="settings" hidden>
-    <h2>Setup — connect to your brain</h2>
-    <p>Paste your Apps Script Web app URL and your Jarvis PIN. They are saved only on this device.</p>
-    <div class="row">
-      <input type="text" id="urlInput" placeholder="Web app URL (https://script.google.com/macros/s/…/exec)" autocomplete="off">
+  <section class="stage">
+    <div class="orb-wrap" id="orbWrap">
+      <span class="ring r3"></span><span class="ring r2"></span><span class="ring"></span>
+      <button class="orb" id="orb" aria-label="Tap to speak"></button>
     </div>
-    <div class="row">
-      <input type="password" id="pinInput" placeholder="Jarvis PIN" autocomplete="off" inputmode="numeric">
-      <button class="b primary" id="saveKey" type="button">Save</button>
+    <p class="hint" id="hint">Tap the orb and speak.</p>
+  </section>
+
+  <main class="screen" id="log" aria-live="polite">
+    <div class="empty" id="empty">
+      <span class="eyebrow">At your service, sir</span>
+      <span>Tap the orb, say “Hey Jarvis”, or try one of these:</span>
+      <div class="chips">
+        <button class="chip" data-q="What can you do for me?">What can you do?</button>
+        <button class="chip" data-q="Give me one tip to motivate my sales team today.">Motivate my team</button>
+        <button class="chip ur" data-q="آج کا ایک اچھا قول سنائیں">آج کا قول سنائیں</button>
+      </div>
     </div>
-    <span class="small" id="setupMsg">You only need to do this once on each device.</span>
+  </main>
+
+  <div class="dock">
+    <div class="dock-row">
+      <div class="seg" role="group" aria-label="Speaking language">
+        <button type="button" id="langEn" aria-pressed="true">English</button>
+        <button type="button" id="langUr" aria-pressed="false"><span class="ur-lbl">اردو</span></button>
+      </div>
+      <button type="button" class="wake" id="wakeBtn" aria-pressed="false"><span class="sw"></span>Hey Jarvis</button>
+    </div>
+    <form id="form">
+      <input type="text" id="q" placeholder="Ask Jarvis anything…" autocomplete="off" enterkeyhint="send">
+      <button class="send" type="submit" id="send">Ask</button>
+    </form>
   </div>
-
-  <div class="stage">
-    <button class="orb" id="orb" aria-label="Tap to speak"></button>
-    <p class="hint" id="hint">Tap the orb and ask your question. Or type below. Jarvis answers out loud.</p>
-  </div>
-
-  <div class="log" id="log" aria-live="polite"></div>
-
-  <div class="tools">
-    <label><input type="checkbox" id="speakToggle" checked> Speak answers</label>
-    <label><input type="checkbox" id="urduVoice"> Urdu voice input</label>
-    <a id="stopSpeak" role="button" tabindex="0">Stop talking</a>
-    <a id="clear" role="button" tabindex="0">Clear chat</a>
-    <a id="openSettings" role="button" tabindex="0">Settings</a>
-  </div>
-
-  <form id="form">
-    <input type="text" id="q" placeholder="Ask Jarvis anything…" autocomplete="off">
-    <button class="b primary" type="submit" id="send">Ask</button>
-  </form>
 </div>
+
+<!-- Settings (separate panel) -->
+<div class="scrim" id="scrim" hidden></div>
+<aside class="panel" id="panel" hidden aria-label="Settings">
+  <div class="panel-hd">
+    <h2>Settings</h2>
+    <button class="icon-btn" id="closeSettings" aria-label="Close settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabConn" aria-selected="true">Connection</button>
+    <button role="tab" id="tabVoice" aria-selected="false">Voice</button>
+    <button role="tab" id="tabChat" aria-selected="false">Chat</button>
+  </div>
+
+  <section class="sec" id="secConn">
+    <div class="row" style="align-items:center;justify-content:space-between"><span class="note">Brain status</span><span class="badge off" id="connBadge">Not connected</span></div>
+    <div class="field"><label for="urlInput">Web app URL (from Apps Script → Deploy)</label>
+      <input type="url" id="urlInput" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+    <div class="field"><label for="pinInput">Jarvis PIN</label>
+      <input type="password" id="pinInput" placeholder="Your secret PIN" autocomplete="off" inputmode="numeric"></div>
+    <div class="row"><button class="btn primary" id="saveConn">Save &amp; connect</button></div>
+    <span class="msgline" id="connMsg"></span>
+    <p class="note">Saved only on this device. Do this once on each phone or computer.</p>
+  </section>
+
+  <section class="sec" id="secVoice" hidden>
+    <div class="field"><label for="enVoice">English voice</label><select id="enVoice"></select></div>
+    <div class="field"><label for="urVoice">Urdu voice</label><select id="urVoice"></select></div>
+    <div class="row"><button class="btn" id="testEn">Test English</button><button class="btn" id="testUr">Test Urdu</button></div>
+    <label class="toggle"><span>Speak answers<small>Jarvis reads every answer out loud</small></span><input type="checkbox" id="speakToggle" checked></label>
+    <p class="note">Jarvis picks a male voice by default. For the best Urdu male voice on a computer, open Jarvis in Microsoft Edge and choose “Asad”. On Android, install Urdu and Hindi voices in Settings → Text-to-speech.</p>
+  </section>
+
+  <section class="sec" id="secChat" hidden>
+    <p class="note">Jarvis remembers the last few messages so you can ask follow-up questions.</p>
+    <div class="row"><button class="btn danger" id="clearChat">Clear chat</button></div>
+  </section>
+</aside>
 
 <script>
 const $ = id => document.getElementById(id);
-const log = $("log"), orb = $("orb"), statusEl = $("status"), statusText = $("statusText");
 const store = { get(k){ try{ return localStorage.getItem(k)||""; }catch(e){ return ""; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } };
+const log = $("log"), orb = $("orb"), orbWrap = $("orbWrap"), statusEl = $("status"), statusText = $("statusText"), hint = $("hint");
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let serverUrl = store.get("jarvis_url"), pin = store.get("jarvis_pin");
-let history = [], busy = false, ctl = null;
+let history = [], busy = false, ctl = null, urduMode = false;
+let rec = null, listening = false;
 
-function setStatus(s,t){ statusEl.dataset.s=s; statusText.textContent=t; orb.classList.toggle("listening",s==="listening"); orb.classList.toggle("thinking",s==="thinking"); }
-function addMsg(who,text,cls){
-  const d=document.createElement("div"); d.className="msg "+cls;
-  const w=document.createElement("span"); w.className="who"; w.textContent=who;
-  const t=document.createElement("span"); t.textContent=text;
-  d.append(w,t); log.append(d); document.body.classList.add("chatting"); d.scrollIntoView({block:"end",behavior:"smooth"}); return t;
+/* ---------- UI state ---------- */
+function setStatus(s, t){
+  statusEl.dataset.s = s; statusText.textContent = t;
+  orbWrap.classList.toggle("listening", s === "listening");
+  orbWrap.classList.toggle("thinking", s === "thinking");
+  orbWrap.classList.toggle("speaking", s === "speaking");
+  if(s === "ready"){ idleHint(); resumeWake(); }
 }
+function idleHint(){
+  if(wakeOn()){ hint.textContent = urduMode ? '"Hey Jarvis" کہیں، پھر اپنا سوال پوچھیں' : 'Say "Hey Jarvis", then your question.'; statusEl.dataset.s = "wake"; statusText.textContent = "Say Hey Jarvis"; }
+  else hint.textContent = urduMode ? "اورب دبائیں اور بولیں" : "Tap the orb and speak.";
+}
+function addMsg(who, text, cls){
+  $("empty") && $("empty").remove();
+  const d = document.createElement("div"); d.className = "msg " + cls;
+  const w = document.createElement("span"); w.className = "who"; w.textContent = who;
+  const t = document.createElement("div"); t.className = "txt"; t.textContent = text; t.dir = "auto";
+  if(/[؀-ۿ]/.test(text)) d.classList.add("ur");
+  d.append(w, t); log.append(d); document.body.classList.add("chatting");
+  d.scrollIntoView({block:"end", behavior:"smooth"});
+  return t;
+}
+function setText(el, text){ el.textContent = text; el.parentElement.classList.toggle("ur", /[؀-ۿ]/.test(text)); el.parentElement.scrollIntoView({block:"end"}); }
 
-/* ---- Talk to the Apps Script brain ---- */
+/* ---------- Settings panel ---------- */
+function openPanel(tab){ $("panel").hidden = false; $("scrim").hidden = false; showTab(tab || "Conn"); $("urlInput").value = serverUrl; $("pinInput").value = pin; fillVoices(); }
+function closePanel(){ $("panel").hidden = true; $("scrim").hidden = true; }
+function showTab(name){ for(const n of ["Conn","Voice","Chat"]){ $("tab"+n).setAttribute("aria-selected", String(n===name)); $("sec"+n).hidden = n !== name; } }
+$("openSettings").onclick = ()=>openPanel(serverUrl && pin ? "Voice" : "Conn");
+$("closeSettings").onclick = closePanel; $("scrim").onclick = closePanel;
+document.addEventListener("keydown", e=>{ if(e.key === "Escape" && !$("panel").hidden) closePanel(); });
+for(const n of ["Conn","Voice","Chat"]) $("tab"+n).onclick = ()=>showTab(n);
+function markConnected(ok){ const b = $("connBadge"); b.textContent = ok ? "Connected" : "Not connected"; b.classList.toggle("off", !ok); }
+
+/* ---------- Brain (Apps Script) ---------- */
 async function callBrain(payload, ms){
   ctl = new AbortController();
   const timer = setTimeout(()=>ctl.abort("timeout"), ms || 90000);
   try{
-    // text/plain keeps this a "simple" request so Apps Script accepts it from any site
     const res = await fetch(serverUrl, { method:"POST", body: JSON.stringify(Object.assign({ pin }, payload)), headers:{ "Content-Type":"text/plain;charset=utf-8" }, signal: ctl.signal, redirect:"follow" });
     const txt = await res.text();
     try{ return JSON.parse(txt); }
-    catch(e){ return { ok:false, error: /<html/i.test(txt) ? "The server asked for a Google sign-in. In Apps Script, set 'Who has access' to Anyone and deploy a new version." : "Unexpected reply from the server." }; }
+    catch(e){ return { ok:false, error: /<html/i.test(txt) ? "The server asked for a Google sign-in. In Apps Script set 'Who has access' to Anyone and deploy a new version." : "Unexpected reply from the server." }; }
   } finally { clearTimeout(timer); }
 }
-
-/* ---- Settings ---- */
-function showSettings(show){ $("settings").hidden = !show; if(show){ $("urlInput").value = serverUrl; $("pinInput").value = pin; } }
-$("saveKey").addEventListener("click", async ()=>{
-  const u = $("urlInput").value.trim(), p = $("pinInput").value.trim();
-  if(!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(u)){ $("setupMsg").textContent = "Paste the full Web app URL. It starts with https://script.google.com/macros/s/"; return; }
-  if(!p){ $("setupMsg").textContent = "Enter your Jarvis PIN."; return; }
-  serverUrl = u; pin = p; $("setupMsg").textContent = "Checking connection…";
+$("saveConn").onclick = async ()=>{
+  const u = $("urlInput").value.trim(), p = $("pinInput").value.trim(), m = $("connMsg");
+  m.className = "msgline";
+  if(!/^https:\/\/script\.google(usercontent)?\.com\/.+/.test(u)){ m.textContent = "Paste the full Web app URL (starts with https://script.google.com/macros/s/)."; m.classList.add("bad"); return; }
+  if(!p){ m.textContent = "Enter your Jarvis PIN."; m.classList.add("bad"); return; }
+  const oldU = serverUrl, oldP = pin; serverUrl = u; pin = p; m.textContent = "Connecting…";
   try{
     const r = await callBrain({ ping:true }, 30000);
-    if(!r.ok){ $("setupMsg").textContent = r.error; return; }
-  }catch(e){ $("setupMsg").textContent = "Could not reach the server. Check the URL and your internet."; return; }
-  store.set("jarvis_url", u); store.set("jarvis_pin", p);
-  showSettings(false); addMsg("Jarvis","Connected, sir. Tap the orb and ask me anything.","ai"); speak("Connected, sir. Ask me anything.");
-});
+    if(!r.ok){ serverUrl = oldU; pin = oldP; m.textContent = r.error; m.classList.add("bad"); return; }
+  }catch(e){ serverUrl = oldU; pin = oldP; m.textContent = "Could not reach the server. Check the URL and your internet."; m.classList.add("bad"); return; }
+  store.set("jarvis_url", u); store.set("jarvis_pin", p); markConnected(true);
+  m.textContent = "Connected."; m.classList.add("good");
+  setTimeout(()=>{ closePanel(); speak("Online and ready, sir."); }, 600);
+};
 
-/* ---- Voice out ---- */
-function speak(text){
+/* ---------- Voice (male by default) ---------- */
+const MALE = /(^|[^e])male|ryan|guy|andrew|brian|christopher|eric|roger|steffan|thomas|george|daniel|arthur|oliver|alfie|elliot|davis|tony|jason|asad|madhur|prabhat|kunal|aarav|rehaan|ravi|david|mark|james|fred|alex|aaron|rishi|hemant|liam|william|connor|mitchell|-x-.*(gbd|gbg|rjs|iom|tpd|hid|hie|urb)/i;
+const FEMALE = /female|zira|aria|jenny|sonia|libby|hazel|susan|uzma|swara|kalpana|heera|neerja|samantha|karen|moira|tessa|victoria|serena|kate|lekha|ava|emma|michelle|natasha|clara|sara|catherine|mia|maisie/i;
+function voices(){ try{ return speechSynthesis.getVoices(); }catch(e){ return []; } }
+function rank(v){ let s = 0; if(MALE.test(v.name) || MALE.test(v.voiceURI||"")) s += 10; if(FEMALE.test(v.name)) s -= 10; if(/natural|online|neural/i.test(v.name)) s += 4; if(/google/i.test(v.name)) s += 2; return s; }
+function autoVoice(kind){
+  const vs = voices();
+  const pool = kind === "en" ? vs.filter(v=>/^en[-_](GB|US|AU|IN)/i.test(v.lang)) : vs.filter(v=>/^ur/i.test(v.lang)).concat(vs.filter(v=>/^hi/i.test(v.lang)));
+  if(kind === "en"){ pool.sort((a,b)=>rank(b)-rank(a) || (/GB/i.test(b.lang)-/GB/i.test(a.lang))); }
+  else pool.sort((a,b)=>(rank(b)+(/^ur/i.test(b.lang)?3:0))-(rank(a)+(/^ur/i.test(a.lang)?3:0)));
+  return pool[0] || null;
+}
+function chosenVoice(kind){
+  const want = store.get("jarvis_voice_" + kind);
+  return (want && voices().find(v=>v.voiceURI === want)) || autoVoice(kind);
+}
+function isMaleVoice(v){ return !!v && (MALE.test(v.name) || MALE.test(v.voiceURI||"")) && !FEMALE.test(v.name); }
+function fillVoices(){
+  const vs = voices();
+  for(const kind of ["en","ur"]){
+    const sel = $(kind === "en" ? "enVoice" : "urVoice"); sel.innerHTML = "";
+    const list = kind === "en" ? vs.filter(v=>/^en/i.test(v.lang)) : vs.filter(v=>/^(ur|hi)/i.test(v.lang));
+    const auto = document.createElement("option"); auto.value = ""; const av = autoVoice(kind);
+    auto.textContent = "Auto (male) — " + (av ? av.name : "none found"); sel.append(auto);
+    list.sort((a,b)=>rank(b)-rank(a)).forEach(v=>{ const o = document.createElement("option"); o.value = v.voiceURI; o.textContent = (isMaleVoice(v) ? "♂ " : "") + v.name + " (" + v.lang + ")"; sel.append(o); });
+    sel.value = store.get("jarvis_voice_" + kind) || "";
+    if(!list.length){ const o = document.createElement("option"); o.disabled = true; o.textContent = kind === "en" ? "No English voices on this device" : "No Urdu/Hindi voices — install them in system settings"; sel.append(o); }
+  }
+}
+$("enVoice").onchange = e=>store.set("jarvis_voice_en", e.target.value);
+$("urVoice").onchange = e=>store.set("jarvis_voice_ur", e.target.value);
+$("testEn").onclick = ()=>speak("Good evening sir. All systems are online.");
+$("testUr").onclick = ()=>speak("السلام علیکم سر، میں آپ کی خدمت کے لیے حاضر ہوں۔", "अस्सलाम अलैकुम सर, मैं आपकी ख़िदमत के लिए हाज़िर हूँ।");
+try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = ()=>{ if(!$("panel").hidden) fillVoices(); }; }catch(e){}
+
+function speak(text, alt){
   if(!$("speakToggle").checked || !("speechSynthesis" in window)){ setStatus("ready","Ready"); return; }
   try{
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    const vs = speechSynthesis.getVoices();
-    const urdu = /[؀-ۿ]/.test(text);
-    const pick = urdu ? (vs.find(v=>/^ur/i.test(v.lang)) || vs.find(v=>/^hi/i.test(v.lang)))
-      : (vs.find(v=>/en-GB/i.test(v.lang) && /male|daniel|george|arthur/i.test(v.name)) || vs.find(v=>/en-GB/i.test(v.lang)) || vs.find(v=>/^en/i.test(v.lang)));
-    if(pick) u.voice = pick;
-    u.rate = 1.02; u.pitch = 0.95;
-    u.onstart = ()=>setStatus("speaking","Speaking");
-    u.onend = u.onerror = ()=>setStatus("ready","Ready");
+    const urdu = /[؀-ۿ]/.test(text) || !!alt;
+    let say = text, v = null;
+    if(urdu){
+      const urScript = /[\u0600-\u06FF]/.test(text);
+      v = chosenVoice("ur");
+      if(v && /^ur/i.test(v.lang) && !urScript && alt){
+        const hi = voices().filter(x=>/^hi/i.test(x.lang)).sort((a,b)=>rank(b)-rank(a))[0];
+        if(hi){ v = hi; say = alt; }                            // Roman Urdu reply: Hindi voice reads it better
+      } else if((!v || /^hi/i.test(v.lang)) && alt) say = alt;  // Hindi voice reads the Devanagari copy
+    } else v = chosenVoice("en");
+    const u = new SpeechSynthesisUtterance(say);
+    if(v){ u.voice = v; u.lang = v.lang; } else u.lang = urdu ? "hi-IN" : "en-GB";
+    u.rate = 1.0;
+    u.pitch = v && !isMaleVoice(v) ? 0.72 : 0.92;   // deepen if only a female voice exists
+    u.onstart = ()=>setStatus("speaking", "Speaking");
+    u.onend = u.onerror = ()=>setStatus("ready", "Ready");
     speechSynthesis.speak(u);
   }catch(e){ setStatus("ready","Ready"); }
 }
-try{ speechSynthesis.getVoices(); }catch(e){}
 
-/* ---- Ask ---- */
+/* ---------- Ask ---------- */
 async function ask(question){
-  question = question.trim(); if(!question || busy) return;
-  if(!serverUrl || !pin){ showSettings(true); addMsg("Jarvis","First connect me in Setup, sir.","ai err"); return; }
+  question = (question || "").trim(); if(!question || busy) return;
+  if(!serverUrl || !pin){ openPanel("Conn"); return; }
+  stopWake();
   addMsg("You", question, "me");
   history.push({ role:"user", text: question });
   if(history.length > 20) history = history.slice(-20);
-  const out = addMsg("Jarvis","Thinking…","ai");
-  busy = true; $("send").disabled = true; setStatus("thinking","Thinking");
+  const out = addMsg("Jarvis", urduMode ? "سوچ رہا ہوں…" : "Thinking…", "ai");
+  busy = true; $("send").disabled = true; setStatus("thinking", "Thinking");
   try{
     const r = await callBrain({ history });
-    if(r.ok){
-      out.textContent = r.text; out.parentElement.scrollIntoView({block:"end"});
-      history.push({ role:"model", text: r.text }); speak(r.text);
-    } else {
-      history.pop(); out.textContent = r.error || "Something went wrong."; out.parentElement.classList.add("err");
-      if(r.badPin) showSettings(true);
-      setStatus("ready","Ready");
+    if(r.ok){ setText(out, r.text); history.push({ role:"model", text: r.text }); busy = false; speak(r.text, r.speak); }
+    else {
+      history.pop(); setText(out, r.error || "Something went wrong."); out.parentElement.classList.add("err");
+      if(r.badPin){ markConnected(false); openPanel("Conn"); }
+      busy = false; setStatus("ready","Ready");
     }
   }catch(e){
     history.pop();
-    const timedOut = ctl && ctl.signal.reason === "timeout";
-    const stopped = !timedOut && ctl && ctl.signal.aborted;
-    out.textContent = stopped ? "Stopped." : timedOut ? "The brain did not answer in 90 seconds. Try again." : "Could not reach the Jarvis server. Check your internet and try again.";
+    const timedOut = ctl && ctl.signal.reason === "timeout", stopped = !timedOut && ctl && ctl.signal.aborted;
+    setText(out, stopped ? "Stopped." : timedOut ? "The brain did not answer in 90 seconds. Try again." : "Could not reach the Jarvis server. Check your internet and try again.");
     if(!stopped) out.parentElement.classList.add("err");
-    setStatus("ready","Ready");
+    busy = false; setStatus("ready","Ready");
   }finally{ busy = false; $("send").disabled = false; }
 }
 
-/* ---- Ears ---- */
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, listening = false;
+/* ---------- Manual mic (orb) ---------- */
 function listen(){
-  try{ speechSynthesis.cancel(); }catch(e){}
+  stopWake();
+  if(window.speechSynthesis && speechSynthesis.speaking){ speechSynthesis.cancel(); setStatus("ready","Ready"); return; } // tap = stop talking
   if(busy){ ctl && ctl.abort(); return; }
-  if(!SR){ $("hint").textContent = "Voice input needs Google Chrome or Microsoft Edge (on iPhone: Safari). You can still type below."; return; }
+  if(!SR){ hint.textContent = "Voice input needs Chrome or Edge (iPhone: Safari). You can type below."; return; }
   if(listening){ rec.stop(); return; }
-  rec = new SR();
-  rec.lang = $("urduVoice").checked ? "ur-PK" : "en-US";
-  rec.interimResults = true;
-  rec.onstart = ()=>{ listening = true; setStatus("listening","Listening"); $("hint").textContent = "Listening… speak now. Tap the orb again to stop."; };
-  rec.onresult = ev=>{ let t=""; for(const r of ev.results) t += r[0].transcript; $("q").value = t; };
-  rec.onerror = ev=>{
-    listening = false; setStatus("ready","Ready");
-    $("hint").textContent = ev.error === "not-allowed" ? "Microphone is blocked. Tap the lock icon next to the address and allow the microphone." :
-      ev.error === "no-speech" ? "I didn't hear anything. Tap the orb and try again." : "Voice error: " + ev.error + ". You can type below.";
-  };
-  rec.onend = ()=>{
-    listening = false; if(statusEl.dataset.s === "listening") setStatus("ready","Ready");
-    const q = $("q").value; if(q.trim()){ $("q").value = ""; $("hint").textContent = "Tap the orb and ask your question. Or type below."; ask(q); }
-  };
+  rec = new SR(); rec.lang = urduMode ? "ur-PK" : "en-US"; rec.interimResults = true;
+  rec.onstart = ()=>{ listening = true; setStatus("listening","Listening"); hint.textContent = urduMode ? "بولیں… میں سن رہا ہوں" : "Listening… speak now. Tap again to stop."; };
+  rec.onresult = ev=>{ let t = ""; for(const r of ev.results) t += r[0].transcript; $("q").value = t; };
+  rec.onerror = ev=>{ listening = false; setStatus("ready","Ready");
+    hint.textContent = ev.error === "not-allowed" ? "Microphone is blocked. Tap the lock icon next to the address and allow the microphone." : ev.error === "no-speech" ? "I didn't hear anything. Tap the orb and try again." : "Voice error: " + ev.error + ". You can type below."; };
+  rec.onend = ()=>{ listening = false; if(statusEl.dataset.s === "listening") setStatus("ready","Ready"); const q = $("q").value; if(q.trim()){ $("q").value = ""; ask(q); } };
   try{ rec.start(); }catch(e){}
 }
 
-orb.addEventListener("click", listen);
-$("form").addEventListener("submit", e=>{ e.preventDefault(); const q=$("q").value; $("q").value=""; ask(q); });
-const act = (id,fn)=>{ const el=$(id); el.addEventListener("click",fn); el.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fn(); } }); };
-act("stopSpeak", ()=>{ try{ speechSynthesis.cancel(); }catch(e){} ctl && ctl.abort(); setStatus("ready","Ready"); });
-act("clear", ()=>{ history=[]; log.innerHTML=""; document.body.classList.remove("chatting"); });
-act("openSettings", ()=>showSettings($("settings").hidden));
+/* ---------- Language ---------- */
+function setLang(ur){
+  urduMode = ur;
+  $("langEn").setAttribute("aria-pressed", String(!ur)); $("langUr").setAttribute("aria-pressed", String(ur));
+  store.set("jarvis_lang", ur ? "ur" : "en");
+  $("q").placeholder = ur ? "جاروس سے کچھ بھی پوچھیں…" : "Ask Jarvis anything…"; $("q").dir = ur ? "rtl" : "ltr";
+  if(wakeRec){ stopWake(); resumeWake(); }
+  if(statusEl.dataset.s === "ready" || statusEl.dataset.s === "wake") idleHint();
+}
 
-if(!serverUrl || !pin){ showSettings(true); addMsg("Jarvis","Hello sir. Connect me to my brain in Setup above.","ai"); }
-else addMsg("Jarvis","Welcome back, sir. Tap the orb and ask me anything.","ai");
+/* ---------- "Hey Jarvis" wake word ---------- */
+const WAKE_RE = /(?:^|\b)(?:hey|hi|ok|okay|hello)?\s*(?:jarvis|jervis|javis|jarvees|jarves|jarvi|jarwis)\b[\s,.!?]*(.*)$/i;
+const WAKE_RE_UR = /(?:جار?وِ?یس|جاروس|جارویس|जार्विस)[\s،.!؟]*(.*)$/;
+let wakeRec = null, wakeRunning = false, awaiting = false, awaitTimer = null, wakeRestart = null;
+function wakeOn(){ return $("wakeBtn").getAttribute("aria-pressed") === "true"; }
+function chime(){
+  try{
+    const ac = chime.ac || (chime.ac = new (window.AudioContext || window.webkitAudioContext)());
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(660, ac.currentTime); o.frequency.setValueAtTime(990, ac.currentTime + 0.09);
+    g.gain.setValueAtTime(0.0001, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.18, ac.currentTime + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.25);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.26);
+  }catch(e){}
+}
+function stopWake(){
+  clearTimeout(wakeRestart); clearTimeout(awaitTimer); awaiting = false;
+  if(wakeRec){ const r = wakeRec; wakeRec = null; wakeRunning = false; try{ r.onend = null; r.abort(); }catch(e){} }
+}
+function wakeAllowed(){ return wakeOn() && SR && !busy && !listening && document.visibilityState === "visible" && !(window.speechSynthesis && speechSynthesis.speaking) && serverUrl && pin; }
+function resumeWake(){ clearTimeout(wakeRestart); wakeRestart = setTimeout(()=>{ if(wakeAllowed() && !wakeRunning) startWake(); }, 400); }
+function startWake(){
+  if(!wakeAllowed() || wakeRunning) return;
+  const r = new SR(); r.lang = urduMode ? "ur-PK" : "en-US"; r.continuous = true; r.interimResults = true;
+  r.onstart = ()=>{ wakeRunning = true; if(!awaiting) idleHint(); };
+  r.onresult = ev=>{
+    for(let i = ev.resultIndex; i < ev.results.length; i++){
+      const res = ev.results[i], said = res[0].transcript;
+      if(awaiting){
+        const w = said.match(WAKE_RE) || said.match(WAKE_RE_UR); const cmd = w ? (w[1] || "") : said;
+        $("q").value = cmd;
+        if(res.isFinal && cmd.trim().length > 1){ $("q").value = ""; stopWake(); ask(cmd); return; }
+        continue;
+      }
+      const m = said.match(WAKE_RE) || said.match(WAKE_RE_UR); if(!m) continue;
+      const rest = (m[1] || "").trim();
+      if(res.isFinal && rest.length > 2){ chime(); stopWake(); ask(rest); return; }
+      if(!awaiting && (res.isFinal || !rest)){
+        awaiting = true; chime();
+        statusEl.dataset.s = "listening"; statusText.textContent = "Listening"; orbWrap.classList.add("listening");
+        hint.textContent = urduMode ? "جی سر؟ اپنا سوال پوچھیں" : "Yes sir?";
+        clearTimeout(awaitTimer);
+        awaitTimer = setTimeout(()=>{ awaiting = false; $("q").value = ""; orbWrap.classList.remove("listening"); idleHint(); }, 9000);
+      }
+    }
+  };
+  r.onerror = ev=>{ if(ev.error === "not-allowed" || ev.error === "service-not-allowed"){ setWake(false); hint.textContent = "Microphone is blocked, so Hey Jarvis can't listen. Allow the mic from the lock icon in the address bar."; } };
+  r.onend = ()=>{ wakeRunning = false; if(wakeRec === r){ wakeRec = null; resumeWake(); } };
+  wakeRec = r; try{ r.start(); }catch(e){ wakeRec = null; wakeRunning = false; }
+}
+function setWake(on){
+  if(on && !SR){ hint.textContent = "Hey Jarvis needs Chrome or Edge."; on = false; }
+  if(on && !(serverUrl && pin)){ openPanel("Conn"); on = false; }
+  $("wakeBtn").setAttribute("aria-pressed", String(on)); store.set("jarvis_wake", on ? "1" : "");
+  if(on) startWake(); else { stopWake(); setStatus("ready","Ready"); }
+}
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible") resumeWake(); else stopWake(); });
+
+/* ---------- Wiring ---------- */
+orb.addEventListener("click", listen);
+$("form").addEventListener("submit", e=>{ e.preventDefault(); const q = $("q").value; $("q").value = ""; ask(q); });
+$("langEn").onclick = ()=>setLang(false);
+$("langUr").onclick = ()=>setLang(true);
+$("wakeBtn").onclick = ()=>setWake(!wakeOn());
+document.querySelectorAll(".chip").forEach(c=>c.onclick = ()=>ask(c.dataset.q));
+$("clearChat").onclick = ()=>{ history = []; log.innerHTML = ""; document.body.classList.remove("chatting"); closePanel(); };
+
+/* ---------- Start ---------- */
+setLang(store.get("jarvis_lang") === "ur");
+markConnected(!!(serverUrl && pin));
+if(!serverUrl || !pin){ openPanel("Conn"); }
+else if(store.get("jarvis_wake") === "1"){ $("wakeBtn").setAttribute("aria-pressed","true"); resumeWake(); }
+setStatus("ready","Ready");
 </script>
-</body></html>
+</body>
+</html>
