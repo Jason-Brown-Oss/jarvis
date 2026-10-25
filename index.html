@@ -197,8 +197,9 @@ form{display:flex;gap:8px}
       <span class="eyebrow">At your service, sir</span>
       <span>Tap the orb, say “Jarvis”, or try one of these:</span>
       <div class="chips">
+        <button class="chip" data-q="Check my phone, do I have any new messages?">Any new messages?</button>
+        <button class="chip" data-q="What meetings do I have today?">Today's meetings</button>
         <button class="chip" data-q="What can you do for me?">What can you do?</button>
-        <button class="chip" data-q="Give me one tip to motivate my sales team today.">Motivate my team</button>
         <button class="chip" data-q="Open Instagram reels">Open Instagram reels</button>
         <button class="chip ur" data-q="آج کا ایک اچھا قول سنائیں">آج کا قول سنائیں</button>
       </div>
@@ -261,9 +262,14 @@ form{display:flex;gap:8px}
     <div class="sec" id="devPhone" hidden>
       <div class="row" style="align-items:center;justify-content:space-between"><span class="note"><b>This phone</b> · phone control</span><span class="badge off" id="accBadge">Off</span></div>
       <div class="row"><button class="btn primary" id="accBtn">Turn on phone control</button><button class="btn" id="pageUrlBtn">Change Jarvis link</button></div>
+      <p class="note">Lets Jarvis read the screen, tap, type and swipe for you. In Accessibility, open <b>Jarvis</b> (maybe under “Downloaded apps”) and turn it on.</p>
+      <div class="row" style="align-items:center;justify-content:space-between;margin-top:6px"><span class="note"><b>Messages</b> · notification access</span><span class="badge off" id="notifBadge">Off</span></div>
+      <div class="row"><button class="btn" id="notifBtn">Turn on notification access</button></div>
+      <p class="note">Lets Jarvis answer “any new messages?”. In the list, turn on <b>Jarvis</b> and press Allow. Only messages that arrive after this are known.</p>
+      <div class="row" style="align-items:center;justify-content:space-between;margin-top:6px"><span class="note"><b>Contacts &amp; calls</b></span><span class="badge off" id="permBadge">Off</span></div>
+      <div class="row"><button class="btn" id="permBtn">Allow contacts and calls</button></div>
       <div class="row" style="align-items:center;justify-content:space-between;margin-top:6px"><span class="note"><b>Wake word</b> · “Jarvis”</span><button class="btn" id="wakeCheckBtn">Check wake word</button></div>
       <div class="note" id="wakeCheck" style="white-space:pre-line"></div>
-      <p class="note">In Accessibility, open <b>Jarvis</b> (it may be under “Downloaded apps” or “Installed apps”) and turn it on. Jarvis can then swipe to the next reel, go back, go home and type for you. Come back here and the badge turns green.</p>
     </div>
     <div class="sec" id="devLaptop" hidden>
       <div class="row" style="align-items:center;justify-content:space-between"><span class="note"><b>This laptop</b> · Jarvis Laptop Helper</span><span class="badge off" id="helperBadge">Not paired</span></div>
@@ -380,7 +386,11 @@ function localCommand(said){
   let target = null, m;
   if((m = s.match(/^(open|launch|start|kholo) (.+)$/))) target = m[2];
   else if((m = s.match(/^(.+) (kholo|open karo|open|chalao)$/))) target = m[1];
-  if(target){ target = target.replace(/^(my|the) /, "").trim(); if(target && target.split(" ").length <= 4) return { action:"open_app", target }; }
+  if(target){
+    target = target.replace(/^(my|the) /, "").trim();
+    const simple = target.split(" ").length <= 3 && !/\b(and|aur|then|phir|check|dekho|batao|tell|read|send|message|for|ko|se|mein|me)\b/.test(target);
+    if(target && simple) return { action:"open_app", target };
+  }
   return null;
 }
 function showOpenCard(url, intent, label){
@@ -397,6 +407,10 @@ async function refreshDevices(){
     let info = {}; try{ info = JSON.parse(NATIVE.info()); }catch(e){}
     const b = $("accBadge"); b.textContent = info.accessibility ? "On" : "Off"; b.classList.toggle("off", !info.accessibility);
     $("accBtn").textContent = info.accessibility ? "Phone control settings" : "Turn on phone control";
+    const nb = $("notifBadge"); nb.textContent = info.notifications ? "On" : "Off"; nb.classList.toggle("off", !info.notifications);
+    $("notifBtn").textContent = info.notifications ? "Notification access settings" : "Turn on notification access";
+    const pb = $("permBadge"), both = info.contacts && info.calls;
+    pb.textContent = both ? "On" : (info.contacts || info.calls ? "Partly" : "Off"); pb.classList.toggle("off", !both);
     return;
   }
   if(!IS_PHONE){
@@ -610,6 +624,81 @@ function addReplay(msgTxtEl, text, alt){
   msgTxtEl.parentElement.append(b);
 }
 
+/* ---------- Agent: Jarvis plans and uses tools step by step ---------- */
+let agentSeq = 0, agentWaiter = null;
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
+function stepLabel(name, a){
+  const L = { open_app:"Opening " + (a.name || "the app") + "…", open_website:"Opening the website…", get_notifications:"Checking your notifications…",
+    read_screen:"Reading the screen…", tap:"Tapping…", type_text:"Typing…", swipe:"Swiping…", press:"Pressing " + (a.key || "") + "…",
+    find_contact:"Looking in contacts…", call:"Calling…", whatsapp_message:"Opening WhatsApp…", set_alarm:"Setting the alarm…", set_timer:"Starting the timer…", wait:"Waiting…" };
+  return L[name] || "Working…";
+}
+JarvisNativeEvents.onAgent = function(e){
+  const w = agentWaiter; if(!w || w.id !== e.id) return;
+  if(e.type === "step"){ w.onStep(e.text); return; }
+  agentWaiter = null;
+  if(e.type === "final") w.resolve(Object.assign({ ok:true }, e.result || {}, { spoken: !!e.spoken }));
+  else w.resolve({ ok:false, error: e.text || "Something went wrong." });
+};
+function runAgent(question, onStep){
+  const draft = pendingDraft ? draftValues(pendingDraft) : null;
+  if(NATIVE && NATIVE.agentAsk){
+    return new Promise(resolve=>{
+      const id = String(++agentSeq);
+      agentWaiter = { id, resolve, onStep };
+      NATIVE.agentAsk(question, JSON.stringify(draft), id);
+    });
+  }
+  return webAgent(question, draft, onStep);
+}
+async function webAgent(question, draft, onStep){
+  const devices = (!IS_PHONE && helperCode()) ? { laptop:true } : {};
+  let tz = ""; try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+  const now = new Date().toLocaleString("en-GB", { weekday:"long", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false });
+  const base = { agent:true, history: history.slice(0, -1), devices, tz, now, pendingDraft: draft };
+  let req = Object.assign({ question }, base);
+  const actions = [];
+  for(let round = 0; round < 12; round++){
+    const r = await callBrain(req);
+    (r.actions || []).forEach(a=>actions.push(a));
+    if(!r.ok || r.done) return Object.assign(r, { actions });
+    if(r.note) onStep(r.note);
+    const results = (r.doneResults || []).slice();
+    for(const c of (r.pending || [])){
+      onStep(stepLabel(c.name, c.args || {}));
+      results.push({ i:c.i, name:c.name, response: await laptopTool(c.name, c.args || {}) });
+    }
+    results.sort((x, y)=>x.i - y.i);
+    req = Object.assign({ turn: r.turn, results }, base);
+  }
+  return { ok:false, error:"That took too many steps. Please ask in a simpler way.", actions };
+}
+async function laptopTool(name, a){
+  const toUrl = t => /^https?:\/\//i.test(t) ? t : /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(t) ? "https://" + t : "https://www.google.com/search?q=" + encodeURIComponent(t);
+  let r;
+  switch(name){
+    case "open_app":
+      if(a.query){
+        const n = String(a.name || "").toLowerCase();
+        const u = n.includes("youtube") ? "https://www.youtube.com/results?search_query=" + encodeURIComponent(a.query) : toUrl(a.query);
+        r = await runDevice({ action:"open_website", url:u });
+      } else r = await runDevice({ action:"open_app", target: a.name || "" });
+      await sleep(1200); break;
+    case "open_website": r = await runDevice({ action:"open_website", url: toUrl(String(a.url_or_search || "")) }); await sleep(1200); break;
+    case "type_text": r = await runDevice({ action:"type_text", text: a.text || "" }); if(r.ok && a.submit) r = await runDevice({ action:"enter" }); break;
+    case "press": {
+      const map = { enter:"enter", back:"back", home:"home", recents:"recent_apps", play_pause:"play_pause", next:"next", previous:"previous", volume_up:"volume_up",
+        volume_down:"volume_down", mute:"mute", close_tab:"close_tab", lock:"lock_screen", scroll_down:"scroll_down", scroll_up:"scroll_up" };
+      r = await runDevice({ action: map[a.key] || a.key }); break;
+    }
+    case "swipe": r = await runDevice({ action: a.direction === "down" ? "previous" : "next" }); break;
+    case "wait": await sleep(Math.min(8, Math.max(1, Number(a.seconds) || 2)) * 1000); r = { ok:true, message:"waited" }; break;
+    default: r = { ok:false, error:"This tool isn't available on this device: " + name };
+  }
+  if(r.unavailable) return { error: "No device is connected. " + noDeviceMsg() };
+  return r.ok ? { result: r.message || "done" } : { error: r.error || "failed" };
+}
+
 /* ---------- Ask ---------- */
 let pendingDraft = null;   // { draftId, card, fields... }
 const SEND_RE = /^\s*(?:jarvis[\s,]*)?(?:yes[\s,]*)?(send( it| the email| email| kar do| kardo| kr do)?|bhej(o| do| dein| den| dijiye)|haan bhej(o| do)?|ok send|go ahead( and send)?|بھیج دو|بھیجو|بھیج دیں|ہاں بھیج دو|भेज दो)\s*[.!]?\s*$/i;
@@ -635,15 +724,14 @@ async function ask(question){
   const out = addMsg("Jarvis", urduMode ? "سوچ رہا ہوں…" : "Thinking…", "ai");
   busy = true; $("send").disabled = true; setStatus("thinking", "Thinking");
   try{
-    const payload = { history };
-    if(pendingDraft) payload.pendingDraft = draftValues(pendingDraft);
-    const r = await callBrain(payload);
+    const r = await runAgent(question, t=>{ if(t) setText(out, t); });
+    (r.actions || []).forEach(handleAction);
     if(r.ok){
       setText(out, r.text); addReplay(out, r.text, r.speak); history.push({ role:"model", text: r.text });
-      if(r.action) handleAction(r.action);
-      busy = false; speak(r.text, r.speak);
+      busy = false;
+      if(r.spoken) setStatus("ready","Ready"); else speak(r.text, r.speak);
     } else {
-      history.pop(); setText(out, r.error || "Something went wrong."); out.parentElement.classList.add("err");
+      history.pop(); setText(out, r.error || "Something went wrong."); if(!r.stopped) out.parentElement.classList.add("err");
       if(r.badPin){ markConnected(false); openPanel("Conn"); }
       busy = false; setStatus("ready","Ready");
     }
@@ -664,10 +752,14 @@ function el(tag, attrs, kids){
 }
 function handleAction(a){
   if(a.type === "remembered"){ return; }
+  if(a.type === "draft_sent"){
+    if(pendingDraft && pendingDraft.draftId === a.draftId) markCard(pendingDraft, "Sent ✓", "sent");
+    return;
+  }
   if(a.type === "open"){
     if(deviceMode()){
-      const req = NATIVE ? { action:"open_app", target:a.label || a.app || "", pkg:a.pkg || "", intent:a.intent || "", url:a.url || "", section:a.section || "home" }
-                         : { action:"open_website", url:a.url, target:a.label || "" };
+      const req = (NATIVE && a.pkg) ? { action:"open_app", target:a.label || a.app || "", pkg:a.pkg || "", intent:a.intent || "", url:a.url || "", section:a.section || "home" }
+                                    : { action:"open_website", url:a.url, target:a.label || "" };
       runDevice(req).then(r=>{ if(!r.ok) showOpenCard(a.url, a.intent, a.label); });
     } else showOpenCard(a.url, a.intent, a.label);
     return;
@@ -759,7 +851,11 @@ function listen(){
   stopWake();
   if(NATIVE){
     if(nativeSpeaking){ NATIVE.stopSpeak(); return; }
-    if(busy){ ctl && ctl.abort(); return; }
+    if(busy){
+      if(agentWaiter && NATIVE.agentCancel){ NATIVE.agentCancel(); const w = agentWaiter; agentWaiter = null; w.resolve({ ok:false, error:"Stopped.", stopped:true }); }
+      else ctl && ctl.abort();
+      return;
+    }
     if(listening){ NATIVE.stopListen(); return; }
     NATIVE.listen(urduMode ? "ur" : "en");
     return;
@@ -881,12 +977,18 @@ function checkWake(){
   }
   if(st.lastHeard) ok.push("• Last thing heard (" + st.lastHeardSecs + "s ago): “" + st.lastHeard + "”");
   else if(st.running) ok.push("• Nothing heard yet. Say “Jarvis” clearly and press Check again.");
-  if(st.lastError) bad.push("• Last problem: " + st.lastError);
+  if(st.lastError){
+    const recent = st.lastErrorSecs >= 0 && st.lastErrorSecs < 60;
+    (recent ? bad : ok).push("• Last problem" + (st.lastErrorSecs >= 0 ? " (" + st.lastErrorSecs + "s ago)" : "") + ": " + st.lastError);
+  }
+  if(st.running && typeof st.heardCount === "number") ok.push("• Sentences heard so far: " + st.heardCount);
   if(st.lang === "ur") ok.push("• Listening in Urdu. If “Jarvis” isn't caught, switch to English at the bottom — the name is caught better in English.");
   out.textContent = (bad.length ? bad.join("\n") + "\n" : "") + ok.join("\n");
   out.style.color = bad.length ? "var(--amber)" : "var(--ok)";
 }
 $("wakeCheckBtn").onclick = checkWake;
+$("notifBtn").onclick = ()=>{ if(NATIVE && NATIVE.openNotificationAccess) NATIVE.openNotificationAccess(); };
+$("permBtn").onclick = ()=>{ if(NATIVE && NATIVE.askPermissions){ NATIVE.askPermissions(); setTimeout(refreshDevices, 4000); } };
 $("accBtn").onclick = ()=>{ if(NATIVE) NATIVE.openAccessibility(); };
 $("pageUrlBtn").onclick = ()=>{ if(NATIVE) NATIVE.changePageUrl(); };
 $("pairBtn").onclick = async ()=>{
@@ -900,7 +1002,7 @@ $("pairBtn").onclick = async ()=>{
   }catch(e){ m.textContent = "Can't reach the helper. Is the Jarvis Helper window open? If the browser asked to connect to this computer, click Allow."; m.classList.add("bad"); }
 };
 document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState === "visible" && !$("panel").hidden && !$("secDevices").hidden) refreshDevices(); });
-$("clearChat").onclick = ()=>{ pendingDraft = null; history = []; log.innerHTML = ""; document.body.classList.remove("chatting"); closePanel(); };
+$("clearChat").onclick = ()=>{ if(NATIVE && NATIVE.clearHistory) NATIVE.clearHistory(); pendingDraft = null; history = []; log.innerHTML = ""; document.body.classList.remove("chatting"); closePanel(); };
 
 /* ---------- Start ---------- */
 setLang(store.get("jarvis_lang") === "ur");
