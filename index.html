@@ -253,13 +253,16 @@ form{display:flex;gap:8px}
     <div class="field"><label for="urVoice">Urdu voice</label><select id="urVoice"></select></div>
     <div class="row"><button class="btn" id="testEn">Test English</button><button class="btn" id="testUr">Test Urdu</button></div>
     <label class="toggle"><span>Speak answers<small>Jarvis reads every answer out loud</small></span><input type="checkbox" id="speakToggle" checked></label>
-    <p class="note">Jarvis picks a male voice by default. For the best Urdu male voice on a computer, open Jarvis in Microsoft Edge and choose “Asad”. On Android, install Urdu and Hindi voices in Settings → Text-to-speech.</p>
+    <p class="note" id="appVoiceNote" hidden>Voices come from your phone. To get more male voices: phone <b>Settings → search “Text-to-speech” → Preferred engine: Speech Services by Google → ⚙️ → Install voice data</b> → download <b>English (UK)</b>, <b>English (US)</b>, <b>Urdu</b> and <b>Hindi</b>. Then pick a voice above and press Test. Voices that sound male usually have ♂.</p>
+    <p class="note" id="webVoiceNote">Jarvis picks a male voice by default. For the best Urdu male voice on a computer, open Jarvis in Microsoft Edge and choose “Asad”. On Android, install Urdu and Hindi voices in Settings → Text-to-speech.</p>
   </section>
 
   <section class="sec" id="secDevices" hidden>
     <div class="sec" id="devPhone" hidden>
       <div class="row" style="align-items:center;justify-content:space-between"><span class="note"><b>This phone</b> · phone control</span><span class="badge off" id="accBadge">Off</span></div>
       <div class="row"><button class="btn primary" id="accBtn">Turn on phone control</button><button class="btn" id="pageUrlBtn">Change Jarvis link</button></div>
+      <div class="row" style="align-items:center;justify-content:space-between;margin-top:6px"><span class="note"><b>Wake word</b> · “Jarvis”</span><button class="btn" id="wakeCheckBtn">Check wake word</button></div>
+      <div class="note" id="wakeCheck" style="white-space:pre-line"></div>
       <p class="note">In Accessibility, open <b>Jarvis</b> (it may be under “Downloaded apps” or “Installed apps”) and turn it on. Jarvis can then swipe to the next reel, go back, go home and type for you. Come back here and the badge turns green.</p>
     </div>
     <div class="sec" id="devLaptop" hidden>
@@ -299,7 +302,7 @@ let history = [], busy = false, ctl = null, urduMode = false;
 let rec = null, listening = false;
 const NATIVE = (window.JarvisNative && typeof window.JarvisNative.doAction === "function") ? window.JarvisNative : null;
 const IS_PHONE = /Android|iPhone|iPad/i.test(navigator.userAgent);
-let nativeSpeaking = false;
+let nativeSpeaking = false, wakeUiTimer = null;
 
 /* Events sent by the Jarvis Android app */
 window.JarvisNativeEvents = {
@@ -314,7 +317,21 @@ window.JarvisNativeEvents = {
     if(e.type === "start"){ nativeSpeaking = true; setStatus("speaking","Speaking"); }
     else { nativeSpeaking = false; if(statusEl.dataset.s === "speaking") setStatus("ready","Ready"); }
   },
-  onWake(cmd){ chime(); ask(cmd); },
+  onWake(cmd){ clearTimeout(wakeUiTimer); chime(); ask(cmd); },
+  onWakeState(e){
+    clearTimeout(wakeUiTimer);
+    if(e.type === "heard" || e.type === "awaiting" || e.type === "partial"){
+      if(busy) return;
+      statusEl.dataset.s = "listening"; statusText.textContent = "Listening"; orbWrap.classList.add("listening");
+      if(e.type === "awaiting") hint.textContent = urduMode ? "جی سر؟ اپنا سوال پوچھیں" : "Yes sir?";
+      if(e.text) $("q").value = e.text;
+      wakeUiTimer = setTimeout(()=>{ $("q").value = ""; orbWrap.classList.remove("listening"); idleHint(); }, 9000);
+    } else if(e.type === "idle"){
+      $("q").value = ""; orbWrap.classList.remove("listening"); if(!busy) idleHint();
+    } else if(e.type === "error"){
+      orbWrap.classList.remove("listening"); hint.textContent = e.text;
+    }
+  },
   onBackground(on){ $("wakeBtn").setAttribute("aria-pressed", String(!!on)); store.set("jarvis_wake", on ? "1" : ""); idleHint(); }
 };
 
@@ -484,7 +501,27 @@ function chosenVoice(kind){
   return (want && voices().find(v=>v.voiceURI === want)) || autoVoice(kind);
 }
 function isMaleVoice(v){ return !!v && (MALE.test(v.name) || MALE.test(v.voiceURI||"")) && !FEMALE.test(v.name); }
+function fillNativeVoices(){
+  let list = [];
+  try{ list = JSON.parse(NATIVE.voices() || "[]"); }catch(e){}
+  for(const kind of ["en","ur"]){
+    const sel = $(kind === "en" ? "enVoice" : "urVoice"); sel.innerHTML = "";
+    const mine = list.filter(v => kind === "en" ? /^en/i.test(v.lang) : /^(ur|hi)/i.test(v.lang))
+                     .sort((a,b)=>(b.male - a.male) || ((/^ur/i.test(b.lang)) - (/^ur/i.test(a.lang))) || a.name.localeCompare(b.name));
+    const auto = document.createElement("option"); auto.value = "";
+    auto.textContent = mine.length ? "Auto (Jarvis picks a male voice)" : (kind === "en" ? "No English voices yet — see below" : "No Urdu/Hindi voices yet — see below");
+    sel.append(auto);
+    mine.forEach(v=>{
+      const o = document.createElement("option"); o.value = v.name;
+      o.textContent = (v.male ? "♂ " : "") + v.lang + " · " + v.name.replace(/^[a-z]{2}-[a-z]{2}-x-/i, "voice ").replace(/-(local|network)$/i, "") + (v.online ? " (online)" : "");
+      sel.append(o);
+    });
+    sel.value = store.get("jarvis_voice_" + kind) || "";
+  }
+  if(!list.length) setTimeout(()=>{ if(!$("panel").hidden && !$("secVoice").hidden) fillNativeVoices(); }, 1500);  // voice engine still starting
+}
 function fillVoices(){
+  if(NATIVE){ fillNativeVoices(); return; }
   const vs = voices();
   for(const kind of ["en","ur"]){
     const sel = $(kind === "en" ? "enVoice" : "urVoice"); sel.innerHTML = "";
@@ -496,8 +533,8 @@ function fillVoices(){
     if(!list.length){ const o = document.createElement("option"); o.disabled = true; o.textContent = kind === "en" ? "No English voices on this device" : "No Urdu/Hindi voices — install them in system settings"; sel.append(o); }
   }
 }
-$("enVoice").onchange = e=>store.set("jarvis_voice_en", e.target.value);
-$("urVoice").onchange = e=>store.set("jarvis_voice_ur", e.target.value);
+$("enVoice").onchange = e=>{ store.set("jarvis_voice_en", e.target.value); if(NATIVE) try{ NATIVE.setVoice("en", e.target.value); }catch(x){} };
+$("urVoice").onchange = e=>{ store.set("jarvis_voice_ur", e.target.value); if(NATIVE) try{ NATIVE.setVoice("ur", e.target.value); }catch(x){} };
 $("testEn").onclick = ()=>speak("Good evening sir. All systems are online.");
 $("testUr").onclick = ()=>speak("السلام علیکم سر، میں آپ کی خدمت کے لیے حاضر ہوں۔", "अस्सलाम अलैकुम सर, मैं आपकी ख़िदमत के लिए हाज़िर हूँ।");
 try{ speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = ()=>{ if(!$("panel").hidden) fillVoices(); }; }catch(e){}
@@ -805,6 +842,12 @@ function setWake(on){
     if(on && !(serverUrl && pin)){ openPanel("Conn"); return; }
     NATIVE.setBackground(!!on);
     $("wakeBtn").setAttribute("aria-pressed", String(!!on)); store.set("jarvis_wake", on ? "1" : ""); idleHint();
+    if(on) setTimeout(()=>{
+      try{
+        const st = JSON.parse(NATIVE.wakeStatus ? NATIVE.wakeStatus() : "{}");
+        if(st.running === false){ hint.textContent = "The wake word didn't start. Open Settings › Devices › Check wake word to see why."; $("wakeBtn").setAttribute("aria-pressed","false"); }
+      }catch(e){}
+    }, 3000);
     return;
   }
   if(on && !SR){ hint.textContent = "The wake word needs Chrome or Edge."; on = false; }
@@ -821,6 +864,29 @@ $("langEn").onclick = ()=>setLang(false);
 $("langUr").onclick = ()=>setLang(true);
 $("wakeBtn").onclick = ()=>setWake(!wakeOn());
 document.querySelectorAll(".chip").forEach(c=>c.onclick = ()=>ask(c.dataset.q));
+function checkWake(){
+  const out = $("wakeCheck");
+  if(!NATIVE || !NATIVE.wakeStatus){ out.textContent = "Install the latest Jarvis app to use this check."; return; }
+  let st = {}; try{ st = JSON.parse(NATIVE.wakeStatus()); }catch(e){}
+  const ok = [], bad = [];
+  (st.mic ? ok : bad).push(st.mic ? "✓ Microphone allowed" : "✗ Microphone not allowed → phone Settings › Apps › Jarvis › Permissions › Microphone › Allow");
+  if(st.notifications === false) bad.push("✗ Notifications blocked → you won't see “Jarvis is listening”. Settings › Apps › Jarvis › Notifications › On");
+  (st.speechAvailable ? ok : bad).push(st.speechAvailable ? "✓ Speech recognition available" : "✗ No speech recognition → install or update the Google app from Play Store");
+  if(!wakeOn()) bad.push("✗ The “Jarvis wake word” switch is off → turn it on at the bottom");
+  else if(!st.running) bad.push("✗ Background listener is not running → turn the switch off and on again. If it stops by itself, phone Settings › Apps › Jarvis › Battery › Unrestricted");
+  else{
+    ok.push("✓ Background listener running (" + st.recognizer + ")");
+    if(st.paused) ok.push("• Paused right now (Jarvis is speaking or you tapped the orb)");
+    else if(st.lastReadySecs < 0 || st.lastReadySecs > 30) bad.push("✗ Listener isn't reaching the microphone → another app may be using the mic. Close it, then switch the wake word off and on.");
+  }
+  if(st.lastHeard) ok.push("• Last thing heard (" + st.lastHeardSecs + "s ago): “" + st.lastHeard + "”");
+  else if(st.running) ok.push("• Nothing heard yet. Say “Jarvis” clearly and press Check again.");
+  if(st.lastError) bad.push("• Last problem: " + st.lastError);
+  if(st.lang === "ur") ok.push("• Listening in Urdu. If “Jarvis” isn't caught, switch to English at the bottom — the name is caught better in English.");
+  out.textContent = (bad.length ? bad.join("\n") + "\n" : "") + ok.join("\n");
+  out.style.color = bad.length ? "var(--amber)" : "var(--ok)";
+}
+$("wakeCheckBtn").onclick = checkWake;
 $("accBtn").onclick = ()=>{ if(NATIVE) NATIVE.openAccessibility(); };
 $("pageUrlBtn").onclick = ()=>{ if(NATIVE) NATIVE.changePageUrl(); };
 $("pairBtn").onclick = async ()=>{
@@ -841,6 +907,7 @@ setLang(store.get("jarvis_lang") === "ur");
 markConnected(!!(serverUrl && pin));
 if(NATIVE){
   document.body.classList.add("in-app");
+  $("appVoiceNote").hidden = false; $("webVoiceNote").hidden = true;
   if(serverUrl && pin){ try{ NATIVE.setBrain(serverUrl, pin); }catch(e){} }
   try{ const info = JSON.parse(NATIVE.info()); if(info.background) store.set("jarvis_wake","1"); else store.set("jarvis_wake",""); }catch(e){}
 }
